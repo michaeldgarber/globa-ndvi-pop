@@ -9,7 +9,7 @@ output:
     toc_depth: 4
 ---
 
-# Summary 
+# Summary
 
 ## Motivation
 
@@ -58,9 +58,16 @@ Estimate the health impacts of urban green scenarios based on population density
 ### Approach
 
 -   Stratify by biome, then by city, then by Landscan population category and then:
--   Measure tertiles of NDVI in each city-pop group
--   Scenario: set the NDVI of pixels in the bottom two tertiles to the NDVI value of the 83rd percentile (median of top tertile). In other words, only intervene upon pixels in the bottom two tertiles for that population category for that city for that biome. Note there are a few cities where biome varies within city.
--   Conduct HIA using mean of Landscan values in that category (can also use min/max for uncertainty analyses)
+
+-   Measure tertiles of NDVI in each biome-city-pop-group stratum.
+
+-   Scenario:
+
+    -   Set the NDVI of pixels in the bottom two tertiles to the NDVI value of the 83rd percentile (median of top tertile). In other words, only intervene upon pixels in the bottom two tertiles for that population category for that city for that biome. Note there are a few cities where biome varies within city.
+
+    -   The idea is that this would be a realistic intervention given the target NDVI is relative to the biome, city, and population density category.
+
+-   Conduct HIA using mean of Landscan populatoin values in that category (also plan to use min/max for uncertainty analyses).
 
 ## Status and next steps
 
@@ -68,8 +75,10 @@ HIA analysis complete for continental USA (48 states+DC) following those steps.
 
 Working on expanding to global.
 
-# Figures and tables 
+# Figures and tables
+
 ## Map of biomes (Continental USA)
+
 ```{r, eval=TRUE, echo=FALSE, warning=FALSE, message=FALSE}
 library(mapview)
 library(tidyverse)
@@ -85,12 +94,45 @@ biomes_14_usa_48 %>% mapview(
   layer.name ="BIOME_NAME")
 ```
 
+## Map of Landscan population categories (Colorado)
+
+The map visualizes values categories coded 1-8 for easier visualization. The corresponding population categories appear in the table below.
+
+```{r, eval=TRUE, echo=FALSE, warning=FALSE, message=FALSE}
+library(raster)
+library(tidyterra)
+setwd(here("data-processed"))
+ls_2019_co_wrangle = terra::rast("ls_2019_co_wrangle.tif")  
+#names(ls_2019_co_wrangle)
+ls_2019_co_wrangle %>% 
+  as_tibble() %>% 
+  group_by(pop_cat_1_8) %>% 
+  summarise(
+    pop_cat_min_val = mean(pop_cat_min_val, na.rm=TRUE),
+    pop_cat_max_val = mean(pop_cat_max_val, na.rm=TRUE),
+    pop_cat_mean_val = mean(pop_cat_mean_val, na.rm=TRUE)
+    )
+
+mapviewOptions(
+  basemaps = c("CartoDB.DarkMatter", "CartoDB.Positron")
+)
+ls_2019_co_wrangle$pop_cat_max_fac %>%
+  raster::raster() %>% 
+  mapview(
+    layer.name = "pop_cat_1_8",
+    zcol = "pop_cat_1_8")
+```
+
 ## Map of global urban boundaries (Colorado)
-Data are large, so only mapping Colorado.
-Visualize the area (square kilometers) of urban boundaries.
+
+Data are large, so only mapping Colorado. Visualize the area (square kilometers) of urban boundaries.
+
 ```{r, eval=TRUE, echo=FALSE, warning=FALSE, message=FALSE}
 setwd(here("data-processed"))
 load("gub_colorado_simplified.RData")
+mapviewOptions(
+  basemaps = c("CartoDB.Positron","CartoDB.DarkMatter")
+)
 gub_colorado_simplified %>%
   mapview(
     zcol = "area_km2",
@@ -132,8 +174,10 @@ t %>%
   )
 
 ```
+
 ## Deaths prevented per 1,000 population by city
-Results are presented at the level of the global urban boundary here, but, following the methods above, they are first stratified by biome and are thus relative to biome within urban boundary if biome varies within urban boundary.
+
+Results are presented at the level of the global urban boundary. Following the methods described above, they are first stratified by biome and are thus relative to biome within urban boundary if biome varies within urban boundary.
 
 ```{r, eval=TRUE, echo=FALSE, warning=FALSE, message=FALSE}
 setwd(here("data-processed"))
@@ -149,4 +193,3 @@ gub_usa_48_hia_simplified %>%
     layer.name = "Deaths prevented per 1k pop",
     zcol = "deaths_prevented_per_1k_pop")
 ```
-
