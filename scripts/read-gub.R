@@ -59,12 +59,12 @@ gub_colorado %>%
 #Make a Colorado one that's simplified (smaller size) for visualization
 gub_colorado_simplified = gub_colorado %>% 
   st_transform(2232) %>% 
-  st_simplify(dTolerance = 100) %>% #simplify before mapview
+  st_simplify(dTolerance = 500) %>% #simplify before mapview
   st_transform(4326)
 gub_colorado_simplified %>% mapview()
 save(gub_colorado_simplified, file = "gub_colorado_simplified.RData")
-
-
+object.size(gub_colorado_simplified)
+object.size(gub_colorado)
 # Restrict to Georgia----
 #I'm curious how Georgia looks
 #loaded above

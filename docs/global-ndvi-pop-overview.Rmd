@@ -57,9 +57,9 @@ Estimate the health impacts of urban green scenarios based on population density
 
 ### Approach
 
--   Stratify by city and by Landscan population category and then:
+-   Stratify by biome, then by city, then by Landscan population category and then:
 -   Measure tertiles of NDVI in each city-pop group
--   Scenario: set the NDVI of pixels in the bottom two tertiles to the NDVI value of the 83rd percentile (median of top tertile). In other words, only intervene upon pixels in the bottom two tertiles for that population category for that city.
+-   Scenario: set the NDVI of pixels in the bottom two tertiles to the NDVI value of the 83rd percentile (median of top tertile). In other words, only intervene upon pixels in the bottom two tertiles for that population category for that city for that biome. Note there are a few cities where biome varies within city.
 -   Conduct HIA using mean of Landscan values in that category (can also use min/max for uncertainty analyses)
 
 ## Status and next steps
@@ -98,6 +98,7 @@ gub_colorado_simplified %>%
 ```
 
 ## Results by biome
+
 ```{r, eval=TRUE, echo=FALSE, warning=FALSE, message=FALSE}
 setwd(here("data-processed"))
 setwd(here("data-processed"))
@@ -130,5 +131,22 @@ t %>%
     digits = c(0,0,2,2,2,0,0,3)
   )
 
+```
+## Deaths prevented per 1,000 population by city
+Results are presented at the level of the global urban boundary here, but, following the methods above, they are first stratified by biome and are thus relative to biome within urban boundary if biome varies within urban boundary.
+
+```{r, eval=TRUE, echo=FALSE, warning=FALSE, message=FALSE}
+setwd(here("data-processed"))
+load("gub_usa_48_hia_simplified.RData")
+library(viridis)
+mapviewOptions(
+  basemaps = c("CartoDB.DarkMatter", "CartoDB.Positron")
+)
+gub_usa_48_hia_simplified %>% 
+  mapview(
+    lwd=.1,
+    col.regions = viridis_pal(option = "plasma"),
+    layer.name = "Deaths prevented per 1k pop",
+    zcol = "deaths_prevented_per_1k_pop")
 ```
 

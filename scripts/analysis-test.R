@@ -124,18 +124,26 @@ pop_ndvi_biome_usa_48_tib_summary %>% View()
 #Link with vector data and visualize?
 gub_usa_48_hia = gub_usa_48 %>% 
   left_join(pop_ndvi_gub_biome_usa_48_tib_summary, by = "ORIG_FID")
+setwd(here("data-processed"))
+save(gub_usa_48_hia, file = "gub_usa_48_hia.RData")
+
 
 #make a simplified (lower memory) geometry file for vis
 gub_usa_48_hia_simplified = gub_usa_48_hia %>% 
   st_transform(2232) %>% 
-  st_simplify(dTolerance = 100) %>% #simplify before mapview
+  st_simplify(dTolerance = 1000) %>% #simplify before mapview
   st_transform(4326)
 object.size(gub_usa_48_hia_simplified)
 object.size(gub_usa_48_hia)
 
-st_crs(gub_usa_48_hia)
+setwd(here("data-processed"))
+save(gub_usa_48_hia_simplified, file = "gub_usa_48_hia_simplified.RData")
+
+library(viridis)
 mv_deaths_prevented_per_1k_pop= gub_usa_48_hia_simplified %>% 
   mapview(
+    lwd=.1,
+    col.regions = viridis_pal(option = "plasma"),
     layer.name = "deaths_prevented_per_1k_pop",
     zcol = "deaths_prevented_per_1k_pop")
 
@@ -143,6 +151,7 @@ mv_deaths_prevented_per_1k_pop
 mv_ndvi_diff_mean = gub_usa_48_hia_simplified %>% 
   dplyr::select(ORIG_FID, ndvi_diff_mean) %>% 
   mapview(
+    lwd=.1,
     layer.name = "ndvi_diff_mean",
     zcol = "ndvi_diff_mean")
 
