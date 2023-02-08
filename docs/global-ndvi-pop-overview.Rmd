@@ -87,7 +87,7 @@ biomes_14_usa_48 %>% mapview(
 
 ## Map of global urban boundaries (Colorado)
 Data are large, so only mapping Colorado.
-Visualize the area (square kilometers) of urba
+Visualize the area (square kilometers) of urban boundaries.
 ```{r, eval=TRUE, echo=FALSE, warning=FALSE, message=FALSE}
 setwd(here("data-processed"))
 load("gub_colorado_simplified.RData")
@@ -109,16 +109,17 @@ hia_summarise = function(df){
       pop_cat_mean_val_scaled = sum(pop_cat_mean_val_scaled,na.rm=TRUE),
       deaths_baseline = sum(deaths_baseline, na.rm=TRUE),
       deaths_prevented = sum(deaths_prevented, na.rm=TRUE),
-      ndvi_diff_mean = mean(ndvi_diff, na.rm=TRUE),
       ndvi_2019_mean = mean(ndvi_2019, na.rm=TRUE),
-      ndvi_2019_sd = sd(ndvi_2019, na.rm=TRUE)
+      ndvi_2019_sd = sd(ndvi_2019, na.rm=TRUE),
+      ndvi_diff_mean = mean(ndvi_diff, na.rm=TRUE)
     ) %>% 
     ungroup() %>% 
-    mutate(deaths_prevented_per_1k_pop = (deaths_prevented/pop_cat_mean_val_scaled)*1000)
+    mutate(deaths_prevented_per_1k_pop = (deaths_prevented/pop_cat_mean_val_scaled)*1000) 
 }
 t = pop_ndvi_gub_biome_usa_48_tib %>% 
   group_by(BIOME_NAME) %>% 
-  hia_summarise() 
+  hia_summarise() %>% 
+  dplyr::select(starts_with("BIOME"), starts_with("pop"), starts_with("ndvi"),starts_with("deaths") )
 t %>% 
   knitr::kable(
     caption = "HIA results by biome",
@@ -126,7 +127,7 @@ t %>%
     #https://bookdown.org/yihui/rmarkdown-cookbook/kable.html
     col.names = gsub("[_]", " ", names(t)),#remove underscores
     format.args = list(big.mark = ",", scientific = FALSE),
-    digits = c(0,0,0,0,2,2,2,3)
+    digits = c(0,0,2,2,2,0,0,3)
   )
 
 ```

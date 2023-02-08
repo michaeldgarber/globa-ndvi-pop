@@ -92,12 +92,12 @@ hia_summarise = function(df){
       pop_cat_mean_val_scaled = sum(pop_cat_mean_val_scaled,na.rm=TRUE),
       deaths_baseline = sum(deaths_baseline, na.rm=TRUE),
       deaths_prevented = sum(deaths_prevented, na.rm=TRUE),
-      ndvi_diff_mean = mean(ndvi_diff, na.rm=TRUE),
       ndvi_2019_mean = mean(ndvi_2019, na.rm=TRUE),
-      ndvi_2019_sd = sd(ndvi_2019, na.rm=TRUE)
+      ndvi_2019_sd = sd(ndvi_2019, na.rm=TRUE),
+      ndvi_diff_mean = mean(ndvi_diff, na.rm=TRUE)
     ) %>% 
     ungroup() %>% 
-    mutate(deaths_prevented_per_1k_pop = (deaths_prevented/pop_cat_mean_val_scaled)*1000)
+    mutate(deaths_prevented_per_1k_pop = (deaths_prevented/pop_cat_mean_val_scaled)*1000) 
 }
 
 ### Summarize by biome and city-----
