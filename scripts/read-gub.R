@@ -1,4 +1,5 @@
 #This loads the city boundaries aka global urban boundaries (GUB)
+#and calculates their area
 #Began January 10, 2022
 
 library(raster)
@@ -42,6 +43,7 @@ mutate_gub = function(df){
 gub_colorado = gub %>% 
   st_intersection(colorado_boundary) %>% 
   mutate_gub()
+
     
 #okay, it looks like the measure they give us is in square km
 setwd(here("data-processed"))
@@ -53,6 +55,15 @@ summary(gub_colorado$area_km2_quantile_5)
 gub_colorado %>%
   filter(area_km2>=area_km2_quantile_5) %>% 
   mapview(zcol = "area_km2")
+
+#Make a Colorado one that's simplified (smaller size) for visualization
+gub_colorado_simplified = gub_colorado %>% 
+  st_transform(2232) %>% 
+  st_simplify(dTolerance = 100) %>% #simplify before mapview
+  st_transform(4326)
+gub_colorado_simplified %>% mapview()
+save(gub_colorado_simplified, file = "gub_colorado_simplified.RData")
+
 
 # Restrict to Georgia----
 #I'm curious how Georgia looks

@@ -1,0 +1,133 @@
+---
+title: "Global NDVI & Population HIA"
+author: "Michael D Garber"
+date: "`r Sys.Date()`"
+output:
+  bookdown::html_document2:
+    toc: true
+    toc_float: true
+    toc_depth: 4
+---
+
+# Summary 
+
+## Motivation
+
+Ideal levels of green space may differ depending on density. At the global scale, there is a need to describe greenness appropriate for its region and population-density context. Such knowledge would identify feasible target areas for improved greening at the local level allowing to estimate the health benefits of such scenarios.
+
+## Objective
+
+Estimate the health impacts of urban green scenarios based on population density-stratified measures of greenness in cities around the world.
+
+## Methods:
+
+### Data sources
+
+-   Green space
+    -   Description: NDVI - global dataset obtained from Chinese colleagues
+    -   Year = 2019
+    -   Spatial resolution = 1km
+    -   Coverage: global
+-   Population
+    -   Landscan population data
+        -   I downloaded from <https://landscan.ornl.gov>
+        -   Population data are formatted in terms of RGB values:
+            -   1 - 5: light yellow rgb(255,255,190)
+            -   6 - 25: medium yellow rgb(255,255,115)
+            -   26 - 50: yellow rgb(255,255,0)
+            -   51 - 100: orange rgb(255,170,0)
+            -   101 - 500: orange-red rgb(255,102,0)
+            -   501 - 2500: red rgb(255,0,0)
+            -   2501 - 5000: dark red rgb(204,0,0)
+            -   5001 - 185000: maroon rgb(115,0,0)
+        -   spatial resolution = 1 km
+        -   year = 2019
+        -   coverage = global
+-   Estimates of mortality rates
+    -   United Nations number of deaths (adults 20+) and population size (adults 20+) for every country
+        -   <https://population.un.org/wpp/Download/Standard/Mortality/>
+    -   Following approach used in global paper with David and Chinese colleagues
+    -   I "downscaled" the Landscan data by the ratio of 20+ to total population in every country per UN
+-   Global urban boundaries
+    -   article: <https://iopscience.iop.org/article/10.1088/1748-9326/ab9be3#erlab9be3s>
+    -   data downloaded from <http://data.ess.tsinghua.edu.cn/gub.html>
+-   Biomes / ecoregions
+    -   Ecoregions 2017 is from <https://ecoregions.appspot.com>
+    -   found via <https://developers.google.com/earth-engine/datasets/catalog/RESOLVE_ECOREGIONS_2017#description>
+
+### Approach
+
+-   Stratify by city and by Landscan population category and then:
+-   Measure tertiles of NDVI in each city-pop group
+-   Scenario: set the NDVI of pixels in the bottom two tertiles to the NDVI value of the 83rd percentile (median of top tertile). In other words, only intervene upon pixels in the bottom two tertiles for that population category for that city.
+-   Conduct HIA using mean of Landscan values in that category (can also use min/max for uncertainty analyses)
+
+## Status and next steps
+
+HIA analysis complete for continental USA (48 states+DC) following those steps.
+
+Working on expanding to global.
+
+# Figures and tables 
+## Map of biomes (Continental USA)
+```{r, eval=TRUE, echo=FALSE, warning=FALSE, message=FALSE}
+library(mapview)
+library(tidyverse)
+library(sf)
+library(here)
+#from global-ndvi-pop/scripts/read-ecoregions-biomes.R
+setwd(here("data-processed"))
+load("biomes_14_usa_48.RData")
+load("biomes_14_usa_48_simplified.RData")
+biomes_14_usa_48 %>% mapview(
+  zcol = "BIOME_NAME",
+  col.regions = viridis::turbo(n=n_distinct(biomes_14_usa_48_simplified$BIOME_NAME)),
+  layer.name ="BIOME_NAME")
+```
+
+## Map of global urban boundaries (Colorado)
+Data are large, so only mapping Colorado.
+Visualize the area (square kilometers) of urba
+```{r, eval=TRUE, echo=FALSE, warning=FALSE, message=FALSE}
+setwd(here("data-processed"))
+load("gub_colorado_simplified.RData")
+gub_colorado_simplified %>%
+  mapview(
+    zcol = "area_km2",
+    layer.name ="area_km2")
+```
+
+## Results by biome
+```{r, eval=TRUE, echo=FALSE, warning=FALSE, message=FALSE}
+setwd(here("data-processed"))
+setwd(here("data-processed"))
+load("pop_ndvi_gub_biome_usa_48_tib.RData")
+#Write this function. Copied directly from analysis-test
+hia_summarise = function(df){
+  df %>% 
+    summarise(
+      pop_cat_mean_val_scaled = sum(pop_cat_mean_val_scaled,na.rm=TRUE),
+      deaths_baseline = sum(deaths_baseline, na.rm=TRUE),
+      deaths_prevented = sum(deaths_prevented, na.rm=TRUE),
+      ndvi_diff_mean = mean(ndvi_diff, na.rm=TRUE),
+      ndvi_2019_mean = mean(ndvi_2019, na.rm=TRUE),
+      ndvi_2019_sd = sd(ndvi_2019, na.rm=TRUE)
+    ) %>% 
+    ungroup() %>% 
+    mutate(deaths_prevented_per_1k_pop = (deaths_prevented/pop_cat_mean_val_scaled)*1000)
+}
+t = pop_ndvi_gub_biome_usa_48_tib %>% 
+  group_by(BIOME_NAME) %>% 
+  hia_summarise() 
+t %>% 
+  knitr::kable(
+    caption = "HIA results by biome",
+    #remove underscores in column names. easy way to make it more legible.
+    #https://bookdown.org/yihui/rmarkdown-cookbook/kable.html
+    col.names = gsub("[_]", " ", names(t)),#remove underscores
+    format.args = list(big.mark = ",", scientific = FALSE),
+    digits = c(0,0,0,0,2,2,2,3)
+  )
+
+```
+

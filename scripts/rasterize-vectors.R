@@ -14,40 +14,24 @@ library(tidyverse)
 setwd(here("data-processed"))
 load("gub_colorado.RData") #Global urban boundaries
 
-#These are created here
-#~global-data-ndvi-pop/scripts/merge-ndvi-ls.R
-merge_pop_ndvi_co = terra::rast("merge_pop_ndvi_co.tif") #Landscan population data and NDVI - CO
-merge_pop_ndvi_usa_48 = terra::rast("merge_pop_ndvi_usa_48.tif") #for USA
 
 #Rasterize with respect to the landscan pop. raster.
 
 # Rasterize GUB vector files---------
-## Colorado-------
+## USA-------
 #To merge the values from gub_colorado, I think I need to rasterize it first.
 #See rasterize description in Lovelace 
 #https://geocompr.robinlovelace.net/raster-vector.html#rasterization
-gub_colorado_raster_orig_fid = rasterize(
-  gub_colorado,
-  merge_pop_ndvi_co,
-  #It'd be cool to add multiple values in one go, but I guess not.
-  #https://stackoverflow.com/questions/68227745/how-to-rasterise-with-multiple-field-values
-  field = "ORIG_FID")
 
-#some checks on resolution, origin, etc.
-res(gub_colorado_raster_orig_fid)
-res(merge_pop_ndvi_co)
-ext(gub_colorado_raster_orig_fid)
-origin(gub_colorado_raster_orig_fid)
-origin(merge_pop_ndvi_co)
-gub_colorado_raster_orig_fid %>% as_tibble() %>% summary()
-gub_colorado_raster_orig_fid %>% raster::raster() %>% mapview()
+#use landscan as target raster throughout, as it's somewhat higher resolution than NDVI
+ls_2019_usa_48_wrangle = terra::rast("ls_2019_usa_48_wrangle.tif") 
 
-## USA-------
+
 setwd(here("data-processed"))
 load("gub_usa_48.RData")
 gub_usa_48_raster_orig_fid = rasterize(
-  gub_usa_48,
-  merge_pop_ndvi_usa_48,
+  gub_usa_48, #vector to be rasterized
+  ls_2019_usa_48_wrangle, #target raster
   #It'd be cool to add multiple values in one go, but I guess not.
   #https://stackoverflow.com/questions/68227745/how-to-rasterise-with-multiple-field-values
   field = "ORIG_FID") 
@@ -66,10 +50,8 @@ load("biomes_14_usa_48.RData")
 ## USA------
 names(biomes_14_usa_48)
 biomes_14_usa_48_raster_biome_name = rasterize(
-  biomes_14_usa_48,
-  merge_pop_ndvi_usa_48,
-  #It'd be cool to add multiple values in one go, but I guess not.
-  #https://stackoverflow.com/questions/68227745/how-to-rasterise-with-multiple-field-values
+  biomes_14_usa_48, #vector to be rasterized
+  ls_2019_usa_48_wrangle, #target raster
   field = "BIOME_NAME")
 terra::writeRaster(
   biomes_14_usa_48_raster_biome_name,
@@ -87,7 +69,46 @@ biomes_14_usa_48_raster_biome_name %>%
   mapview(zcol = "BIOME_NAME")
 
 
-
 ## World-------
 setwd(here("data-processed"))
 load("ecoregions.RData")
+load("biomes_14.RData")
+
+# Rasterize countries-------
+## USA-----
+setwd(here("data-processed"))
+ls_2019_usa_48_wrangle = terra::rast("ls_2019_usa_48_wrangle.tif") 
+names(countries)
+table(countries$name_en)
+countries_usa_48 = countries %>% 
+  filter(name_en == "United States of America") %>% 
+  st_intersection(usa_boundaries_cont_48_union)
+countries_usa_48 %>% mapview()
+countries_usa_48_raster_name_en = rasterize(
+  countries_usa_48, #vector to be rasterized
+  ls_2019_usa_48_wrangle, #target raster
+  field = "name_en")
+setwd(here("data-processed"))
+terra::writeRaster(
+  countries_usa_48_raster_name_en,
+  overwrite=TRUE,
+  filename = "countries_usa_48_raster_name_en.tif" 
+)
+
+## Globally----
+setwd(here("data-input", "ls-global-2019-alt-dl"))
+ls_2019_global = terra::rast("landscan-global-2019-colorized.tif")
+names(countries)
+table(countries$name_en)
+countries_raster_name_en = rasterize(
+  countries, #vector to be rasterized
+  ls_2019_global, #target raster
+  field = "name_en")
+setwd(here("data-processed"))
+terra::writeRaster(
+  countries_raster_name_en,
+  overwrite=TRUE,
+  filename = "countries_raster_name_en.tif" 
+)
+
+

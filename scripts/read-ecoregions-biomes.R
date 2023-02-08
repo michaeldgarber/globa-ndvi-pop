@@ -18,9 +18,11 @@ setwd(here("data-input", "ecoregions-biomes"))
 getwd()
 # Read ecoregions / biome data------
 ecoregions = st_read(dsn ="Ecoregions2017") %>%
+  #don't use st_simplify yet because it has to be unioned,
+  #and if it has been st_simplified, it creates little slivers.
   st_transform(4326) %>% 
-  st_make_valid() %>% #Loop 0 was not valid, so this fixes it.
-  st_simplify(dTolerance = 100) #make file size smaller. that will work.
+  st_make_valid() 
+
 
 object.size(ecoregions)
 #file size without simplification   267601304 bytes
@@ -43,31 +45,30 @@ table(ecoregions$ECO_BIOME_)
 ecoregions %>% 
   st_set_geometry(NULL) %>% 
   group_by(BIOME_NAME) %>% 
-  summarise(n=n())
+  summarise(n_ecoregions=n())
 
 #how many ecoregions?
+names(ecoregions)
 ecoregions %>% 
   st_set_geometry(NULL) %>% 
-  n_distinct(ECO_NAME)
+  as_tibble() %>% 
   group_by(ECO_NAME) %>% 
-  summarise(n=n()) %>% 
-  nrow()
-
+  summarise(n=n()) 
 
 
 # Dissolve into just the fourteen biomes - smaller data------
 #Note this takes some time, so probably good to save.
+sf::sf_use_s2(FALSE) 
 biomes_14 = ecoregions %>% 
   group_by(BIOME_NAME) %>% 
-  summarise(n=n()) %>% 
-  ungroup() %>% 
-  st_make_valid()  #Loop 0 was not valid, so this fixes it.
+  summarise(n_ecoregions=n()) %>% 
+  ungroup() 
 
 object.size(biomes_14)
 setwd(here("data-processed"))
-save(biomes_14 , file = "biomes_14.RData")
+save(biomes_14, file = "biomes_14.RData")
 
-#biomes_14 %>% mapview(zcol = "BIOME_NAME")
+biomes_14 %>% mapview(zcol = "BIOME_NAME")
 
 # Restrict to Colorado----
 sf::sf_use_s2(FALSE)
@@ -90,15 +91,37 @@ names(ecoregions_colorado)
 ecoregions_colorado %>% mapview(zcol = "ECO_NAME")
 
 # Restrict to continental USA-------
+source(here("scripts", "generate-boundaries-states-countries.R")) #if needed to run again
+setwd(here("data-processed"))
+load("biomes_14.RData") #if needed
+sf::sf_use_s2(FALSE) #needed for it to work
 biomes_14_usa_48 = biomes_14 %>% 
-  st_intersection(usa_boundaries_cont_48_union)
+  st_intersection(st_buffer(usa_boundaries_cont_48_union,0)) 
+
+#little lines are gone b/c didn't st_simplify. great.
 biomes_14_usa_48 %>% mapview(zcol = "BIOME_NAME")
 
 setwd(here("data-processed"))
 save(biomes_14_usa_48, file = "biomes_14_usa_48.RData")
 
+#Make a smaller version as well for vis
+biomes_14_usa_48_simplified = biomes_14_usa_48 %>%   
+  st_transform(2232) %>% 
+  st_simplify(dTolerance = 10000) %>% #simplify before mapview
+  st_transform(4326)
+object.size(biomes_14_usa_48_simplified)
+object.size(biomes_14_usa_48)
+biomes_14_usa_48_simplified %>% 
+  mapview(
+    col.regions = viridis::turbo(n=n_distinct(biomes_14_usa_48_simplified$BIOME_NAME)),
+    zcol = "BIOME_NAME"
+    )
+setwd(here("data-processed"))
+save(biomes_14_usa_48_simplified, file = "biomes_14_usa_48_simplified.RData")
+
 ecoregions_usa_48 = ecoregions %>% 
   st_intersection(usa_boundaries_cont_48_union)
+save(ecoregions_usa_48, file = "ecoregions_usa_48.RData")
 ecoregions_usa_48 %>% 
   mapview(
     zcol = "ECO_NAME", 

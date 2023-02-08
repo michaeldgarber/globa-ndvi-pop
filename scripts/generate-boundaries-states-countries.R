@@ -4,10 +4,14 @@ library(tidyverse)
 library(USAboundaries)
 library(mapview)
 library(sf)
+library(here)
 
 # US states----------
-state_boundaries = USAboundariesData::states_contemporary_hires %>% 
-  st_simplify(dTolerance = 100)
+state_boundaries = USAboundariesData::states_contemporary_hires 
+  #actually don't use st_simplify here because it creates little slivers between the boundaries
+  #when you then go to union it below
+
+
 object.size(state_boundaries) #making file size smaller.
 #no simplification: 5302128 bytes
 #dTolerance 10:     4303520 bytes
@@ -20,16 +24,23 @@ usa_boundaries_cont_48 = state_boundaries %>%
   filter(name != "Commonwealth of the Northern Mariana Islands") %>% 
   filter(name != "Puerto Rico") %>% 
   filter(name != "American Samoa") %>% 
-  filter(name !="United States Virgin Islands")
+  filter(name !="United States Virgin Islands") %>% 
+  mutate(cont_48=1)
+usa_boundaries_cont_48
+class(usa_boundaries_cont_48)
 
 #unary union this
 usa_boundaries_cont_48_union = usa_boundaries_cont_48 %>% 
-  st_union() %>% 
-  st_make_valid()
+  group_by(cont_48) %>% 
+  summarise(n_states_us=n()) %>% 
+  ungroup() %>% 
+  st_as_sf()  %>% #getting a notice that it's not valid, so try
+  st_make_valid() 
 
+class(usa_boundaries_cont_48)
 nrow(usa_boundaries_cont_48)
-#usa_boundaries_cont_48 %>% mapview()
-colorado_boundary = state_boundaries %>% 
+usa_boundaries_cont_48_union %>% mapview()
+colorado_boundary = usa_boundaries_cont_48 %>% 
   filter(name == "Colorado")
 michigan_boundary = state_boundaries %>% 
   filter(name == "Michigan")
@@ -50,6 +61,7 @@ countries = rnaturalearth::ne_countries(returnclass = "sf")
 
 class(countries)
 mapview(countries, zcol = "wb_a2")
+
 
 # countries %>% 
 #   filter(name_en == "United States of America") %>% 

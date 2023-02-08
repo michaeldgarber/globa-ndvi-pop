@@ -1,7 +1,8 @@
 #Analysis-initial steps
 # January 23, 2023
 #Okay, here I'm making some decisions on what to do with the population categories.
-#It might be simplest to just keep the categories as they are, rather than group them further into tertiles,
+#It might be simplest to just keep the categories as they are, 
+#rather than group them further into tertiles,
 #given they're already presented in categories
 
 library(terra)
@@ -81,6 +82,9 @@ pop_ndvi_gub_biome_usa_48_tib = pop_ndvi_gub_biome_usa_48 %>%
   mutate_steps_hia_ndvi_pop() %>% 
   ungroup()
 
+setwd(here("data-processed"))
+save(pop_ndvi_gub_biome_usa_48_tib, file = "pop_ndvi_gub_biome_usa_48_tib.RData")
+
 ## Summary----
 hia_summarise = function(df){
   df %>% 
@@ -88,14 +92,19 @@ hia_summarise = function(df){
       pop_cat_mean_val_scaled = sum(pop_cat_mean_val_scaled,na.rm=TRUE),
       deaths_baseline = sum(deaths_baseline, na.rm=TRUE),
       deaths_prevented = sum(deaths_prevented, na.rm=TRUE),
-      ndvi_diff_mean = mean(ndvi_diff, na.rm=TRUE)
+      ndvi_diff_mean = mean(ndvi_diff, na.rm=TRUE),
+      ndvi_2019_mean = mean(ndvi_2019, na.rm=TRUE),
+      ndvi_2019_sd = sd(ndvi_2019, na.rm=TRUE)
     ) %>% 
     ungroup() %>% 
     mutate(deaths_prevented_per_1k_pop = (deaths_prevented/pop_cat_mean_val_scaled)*1000)
 }
+
+### Summarize by biome and city-----
 pop_ndvi_gub_biome_usa_48_tib_summary = pop_ndvi_gub_biome_usa_48_tib %>% 
   group_by(BIOME_NAME, ORIG_FID) %>% 
   hia_summarise() 
+pop_ndvi_gub_biome_usa_48_tib_summary
 
 #do any cities have within-city variation of biome? yes, 300 do.
 nrow(pop_ndvi_gub_biome_usa_48_tib_summary)
@@ -103,13 +112,41 @@ n_distinct(pop_ndvi_gub_biome_usa_48_tib_summary$ORIG_FID)
 pop_ndvi_gub_biome_usa_48_tib_summary %>% 
   arrange(desc(deaths_prevented))
 
+### Summarize by biome-----
+pop_ndvi_biome_usa_48_tib_summary = pop_ndvi_gub_biome_usa_48_tib %>% 
+  group_by(BIOME_NAME) %>% 
+  hia_summarise() 
+
+pop_ndvi_biome_usa_48_tib_summary
+pop_ndvi_biome_usa_48_tib_summary %>% View()
+
+
 #Link with vector data and visualize?
 gub_usa_48_hia = gub_usa_48 %>% 
   left_join(pop_ndvi_gub_biome_usa_48_tib_summary, by = "ORIG_FID")
 
-mv_gub_usa_48_hia =  gub_usa_48_hia %>% 
-  mapview(zcol = "deaths_prevented_per_1k_pop")
-mv_gub_usa_48_hia
-gub_usa_48_hia %>% mapview(zcol = "ndvi_diff_mean")
+#make a simplified (lower memory) geometry file for vis
+gub_usa_48_hia_simplified = gub_usa_48_hia %>% 
+  st_transform(2232) %>% 
+  st_simplify(dTolerance = 100) %>% #simplify before mapview
+  st_transform(4326)
+object.size(gub_usa_48_hia_simplified)
+object.size(gub_usa_48_hia)
+
+st_crs(gub_usa_48_hia)
+mv_deaths_prevented_per_1k_pop= gub_usa_48_hia_simplified %>% 
+  mapview(
+    layer.name = "deaths_prevented_per_1k_pop",
+    zcol = "deaths_prevented_per_1k_pop")
+
+mv_deaths_prevented_per_1k_pop
+mv_ndvi_diff_mean = gub_usa_48_hia_simplified %>% 
+  dplyr::select(ORIG_FID, ndvi_diff_mean) %>% 
+  mapview(
+    layer.name = "ndvi_diff_mean",
+    zcol = "ndvi_diff_mean")
+
+mv_ndvi_diff_mean
+
 
 object.size(mv_gub_usa_48_hia)

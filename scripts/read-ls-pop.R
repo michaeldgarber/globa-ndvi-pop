@@ -12,8 +12,8 @@ library(tidyterra)
 library(sf)
 
 # Feb 8 2023
-#Updating script to begin with global and then can filter to smaller areas
-#rather than doing computations on smaller areas first.
+#Adding global at the bottom. Not the most efficient code to begin with
+#smaller and work up to global, but it's okay..
 
 
 # Read data-------
@@ -51,7 +51,7 @@ ls_2019_global$`landscan-global-2019-colorized_2` %>% plot()
 ls_2019_global$`landscan-global-2019-colorized_3` %>% plot()
 ls_2019_global$`landscan-global-2019-colorized_4` %>% values()
 
-# Global--------
+
 
 # Limit to Colorado-----------
 source(here("scripts", "generate-boundaries-states-countries.R")) 
@@ -283,7 +283,6 @@ setwd(here("data-processed"))
 terra::writeRaster(
   ls_2019_usa_48_wrangle,
   overwrite=TRUE,
-  #  datatype = "INT1U", #see Robin's discussion of what this means. default OK
   filename = "ls_2019_usa_48_wrangle.tif" 
 )
 
@@ -297,3 +296,14 @@ ls_2019_michigan$`landscan-global-2019-colorized_1` %>%
 ls_2019_usa_48$`landscan-global-2019-colorized_1` %>% 
   raster::raster() %>% mapview(layer.name = "landscan")
 
+# Global--------
+#This takes several minutes to run.
+#Feb 8 2023 - I canceled because it was taking 10mins plus. I'll run during a break.
+ls_2019_global_wrangle = ls_2019_global %>% 
+  landscan_pop_wrangle() 
+setwd(here("data-processed"))
+terra::writeRaster(
+  ls_2019_global_wrangle,
+  overwrite=TRUE,
+  filename = "ls_2019_global_wrangle.tif" 
+)
