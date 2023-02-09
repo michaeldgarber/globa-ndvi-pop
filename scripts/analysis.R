@@ -36,7 +36,7 @@ mutate_steps_hia_ndvi_pop = function(df){
   df %>% 
     mutate( #use group_by() %>% mutate() rather than group_by() %>% summarise()
       #I'm getting strange things with negative values. Maybe create categories manually
-      #rather than using cut_interval, as I was getting strange results
+      #rather than using cut_interval.
       ndvi_33=quantile(ndvi_2019, probs=0.333333, na.rm=TRUE),
       ndvi_66=quantile(ndvi_2019, probs=0.666666, na.rm=TRUE),
       #The median of the top tertile is by definition 83.3333, right? 5/6. Yes.
@@ -46,7 +46,7 @@ mutate_steps_hia_ndvi_pop = function(df){
         ndvi_2019 > ndvi_66 ~3,
         ndvi_2019 > ndvi_33 & ndvi_2019 <=ndvi_66 ~2),
       #Now calculate the difference in NDVI, but only for the bottom two tertiles:
-      #lifting up to the median NDVI value of the top tertile
+      #scenario: raise all pixels to the median NDVI value of the top tertile
       ndvi_diff = case_when(
         ndvi_tertile <3 ~       ndvi_83-ndvi_2019,
         ndvi_tertile==3 ~ NA_real_),
@@ -74,8 +74,9 @@ pop_ndvi_gub_biome_usa_48_tib = pop_ndvi_gub_biome_usa_48 %>%
   terra::mask(gub_usa_48) %>% 
   as_tibble() %>% 
   bind_cols(drf_deaths) %>%   #add DRF to every row
-  bind_cols(un_pop_deaths_2019_usa) %>% #add number of deaths to every row
-  mutate( pixel_id = row_number()) %>% #row number for a given geography
+  #add number of deaths to every row (would be a left_join for more countries
+  bind_cols(un_pop_deaths_2019_usa) %>% 
+  mutate(pixel_id = row_number()) %>% #row number for a given geography
   filter(is.na(pop_cat_1_8)==FALSE) %>% #NAs throwing error 
   filter(ndvi_2019>0) %>% #exclude NDVI below 0
   group_by(BIOME_NAME, ORIG_FID, pop_cat_1_8) %>% #group by biome, then city, then pop cat
@@ -159,3 +160,5 @@ mv_ndvi_diff_mean
 
 
 object.size(mv_gub_usa_48_hia)
+
+# Global analysis----------

@@ -19,7 +19,7 @@ Ideal levels of green space may differ depending on density. At the global scale
 
 Estimate the health impacts of urban green scenarios based on population density-stratified measures of greenness in cities around the world.
 
-## Methods:
+## Methods
 
 ### Data sources
 

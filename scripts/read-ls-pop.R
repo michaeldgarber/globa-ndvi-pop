@@ -298,9 +298,15 @@ ls_2019_usa_48$`landscan-global-2019-colorized_1` %>%
 
 # Global--------
 #This takes several minutes to run.
-#Feb 8 2023 - I canceled because it was taking 10mins plus. I'll run during a break.
+#Feb 9 2023: this didn't work. I need to convert it to a tibble first
+#and then do the data wrangling steps
+
+time_start = Sys.time()
 ls_2019_global_wrangle = ls_2019_global %>% 
   landscan_pop_wrangle() 
+time_stop = Sys.time()
+time_to_create_ls_2019_global_wrangle = time_stop-time_start
+
 setwd(here("data-processed"))
 terra::writeRaster(
   ls_2019_global_wrangle,

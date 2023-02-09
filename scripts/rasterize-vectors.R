@@ -80,35 +80,42 @@ setwd(here("data-processed"))
 ls_2019_usa_48_wrangle = terra::rast("ls_2019_usa_48_wrangle.tif") 
 names(countries)
 table(countries$name_en)
-countries_usa_48 = countries %>% 
-  filter(name_en == "United States of America") %>% 
+#Use the version that has been merged with the UN data so that we use the
+#column name "country_name_en"
+source(here("scripts", "merge-un-countries-geo.R"))
+countries_joined_with_un_pop_deaths_2019_pared_usa
+names(countries_joined_with_un_pop_deaths_2019_pared_usa)
+countries_usa_48 = countries_joined_with_un_pop_deaths_2019_pared_usa %>% 
+  filter(country_name_en == "United States of America") %>% 
   st_intersection(usa_boundaries_cont_48_union)
+
 countries_usa_48 %>% mapview()
-countries_usa_48_raster_name_en = rasterize(
+countries_usa_48_raster_country_name_en = rasterize(
   countries_usa_48, #vector to be rasterized
   ls_2019_usa_48_wrangle, #target raster
-  field = "name_en")
+  field = "country_name_en")
 setwd(here("data-processed"))
 terra::writeRaster(
-  countries_usa_48_raster_name_en,
+  countries_usa_48_raster_country_name_en,
   overwrite=TRUE,
-  filename = "countries_usa_48_raster_name_en.tif" 
+  filename = "countries_usa_48_raster_country_name_en.tif" 
 )
 
 ## Globally----
+countries_joined_with_un_pop_deaths_2019_pared #created above when script is sourced
 setwd(here("data-input", "ls-global-2019-alt-dl"))
 ls_2019_global = terra::rast("landscan-global-2019-colorized.tif")
-names(countries)
-table(countries$name_en)
-countries_raster_name_en = rasterize(
-  countries, #vector to be rasterized
+
+table(countries_joined_with_un_pop_deaths_2019_pared$country_name_en)
+countries_raster_country_name_en = rasterize(
+  countries_joined_with_un_pop_deaths_2019_pared, #vector to be rasterized
   ls_2019_global, #target raster
-  field = "name_en")
+  field = "country_name_en")
 setwd(here("data-processed"))
 terra::writeRaster(
-  countries_raster_name_en,
+  countries_raster_country_name_en,
   overwrite=TRUE,
-  filename = "countries_raster_name_en.tif" 
+  filename = "countries_raster_country_name_en.tif" 
 )
 
 
