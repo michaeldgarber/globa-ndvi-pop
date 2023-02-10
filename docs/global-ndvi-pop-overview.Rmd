@@ -23,8 +23,8 @@ Estimate the health impacts of urban green scenarios based on population density
 
 ### Data sources
 
--   Green space
-    -   Description: NDVI - global dataset obtained from Chinese colleagues
+-   Green space (NDVI)
+    -   Description: As described by Chinese colleagues: NDVI data: MODIS NDVI 16-day composite product at a 1 km resolution (MOD13A2 Version 6), we calculated the annual maximum value of NDVI for each pixel every year on the Google Earth Engine (GEE) platform.
     -   Year = 2019
     -   Spatial resolution = 1km
     -   Coverage: global
@@ -47,7 +47,7 @@ Estimate the health impacts of urban green scenarios based on population density
     -   United Nations number of deaths (adults 20+) and population size (adults 20+) for every country
         -   <https://population.un.org/wpp/Download/Standard/Mortality/>
     -   Following approach used in global paper with David and Chinese colleagues
-    -   I "downscaled" the Landscan data by the ratio of 20+ to total population in every country per UN
+    -   I down-weighted the Landscan data by the ratio of 20+ to total population in every country per UN
 -   Global urban boundaries
     -   article: <https://iopscience.iop.org/article/10.1088/1748-9326/ab9be3#erlab9be3s>
     -   data downloaded from <http://data.ess.tsinghua.edu.cn/gub.html>
@@ -77,7 +77,8 @@ Working on expanding to global.
 
 # Figures and tables
 
-## Map of biomes (Continental USA)
+## Depiction of data sources------
+### Map of biomes (Continental USA)
 
 ```{r, eval=TRUE, echo=FALSE, warning=FALSE, message=FALSE}
 library(mapview)
@@ -94,7 +95,7 @@ biomes_14_usa_48 %>% mapview(
   layer.name ="BIOME_NAME")
 ```
 
-## Map of Landscan population categories (Colorado)
+### Map of Landscan population categories (Colorado)
 
 The map visualizes values categories coded 1-8 for easier visualization. The corresponding population categories appear in the table below.
 
@@ -139,7 +140,8 @@ gub_colorado_simplified %>%
     layer.name ="area_km2")
 ```
 
-## Results by biome
+## Results (Continental USA)
+### Results by biome (Continental USA)
 
 ```{r, eval=TRUE, echo=FALSE, warning=FALSE, message=FALSE}
 setwd(here("data-processed"))
@@ -175,8 +177,7 @@ t %>%
 
 ```
 
-## Deaths prevented per 1,000 population by city
-
+### Deaths prevented per 1,000 population by city (Continental USA)
 Results are presented at the level of the global urban boundary. Following the methods described above, they are first stratified by biome and are thus relative to biome within urban boundary if biome varies within urban boundary.
 
 ```{r, eval=TRUE, echo=FALSE, warning=FALSE, message=FALSE}
@@ -193,3 +194,11 @@ gub_usa_48_hia_simplified %>%
     layer.name = "Deaths prevented per 1k pop",
     zcol = "deaths_prevented_per_1k_pop")
 ```
+
+## Results (Global)
+
+### How many cities includeds?
+
+### Results by biome (Global)
+
+### Results by biome (Global)

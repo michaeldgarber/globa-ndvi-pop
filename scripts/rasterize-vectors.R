@@ -42,6 +42,24 @@ terra::writeRaster(
   filename = "gub_usa_48_raster_orig_fid.tif" 
 )
 
+## Global------
+setwd(here("data-input", "ls-global-2019-alt-dl"))
+ls_2019_global = terra::rast("landscan-global-2019-colorized.tif")
+setwd(here("data-processed"))
+load("gub.RData")
+gub_raster_orig_fid = rasterize(
+  gub, #vector to be rasterized
+  ls_2019_global, #target raster
+  field = "ORIG_FID"
+  )
+
+setwd(here("data-processed"))
+terra::writeRaster(
+  gub_raster_orig_fid,
+  overwrite=TRUE,
+  filename = "gub_raster_orig_fid.tif" 
+)
+
 
 # Rasterize ecoregions & biomes-------
 setwd(here("data-processed"))
@@ -69,10 +87,25 @@ biomes_14_usa_48_raster_biome_name %>%
   mapview(zcol = "BIOME_NAME")
 
 
-## World-------
+## Global-------
 setwd(here("data-processed"))
 load("ecoregions.RData")
 load("biomes_14.RData")
+setwd(here("data-input", "ls-global-2019-alt-dl"))
+ls_2019_global = terra::rast("landscan-global-2019-colorized.tif")
+
+biomes_14_raster_biome_name = rasterize(
+  biomes_14, #vector to be rasterized
+  ls_2019_global, #target raster
+  field = "BIOME_NAME")
+
+setwd(here("data-processed"))
+terra::writeRaster(
+  biomes_14_raster_biome_name,
+  overwrite=TRUE,
+  filename = "biomes_14_raster_biome_name.tif" 
+)
+
 
 # Rasterize countries-------
 ## USA-----
@@ -101,7 +134,7 @@ terra::writeRaster(
   filename = "countries_usa_48_raster_country_name_en.tif" 
 )
 
-## Globally----
+## Global----
 countries_joined_with_un_pop_deaths_2019_pared #created above when script is sourced
 setwd(here("data-input", "ls-global-2019-alt-dl"))
 ls_2019_global = terra::rast("landscan-global-2019-colorized.tif")

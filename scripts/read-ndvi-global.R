@@ -13,7 +13,7 @@ library(terra)
 
 # Read data-----
 #Comment: based on their file names, it looks like everything is from 2019
-setwd(here("data-input"))
+setwd(here("data-input", "ndvi-2019-global"))
 ndvi_2019_global = terra::rast("ndvi_2019_Global.tif") %>% 
   #Feb 8 2023: rename here and then all others won't need this step
   tidyterra::rename(ndvi_2019 = ndvi_2019_Global) 

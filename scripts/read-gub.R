@@ -14,7 +14,13 @@ library(sf)
 setwd(here("data-input", "global-urban-boundaries"))
 getwd()
 gub = st_read(dsn ="GUB_Global_2018") %>%
-  st_transform(4326) 
+  st_transform(4326) %>% 
+  mutate(  #measure area this way
+    area_m2 = st_area(geometry),
+    area_km2 = area_m2*1e-6 
+  )
+setwd(here("data-processed"))
+save(gub, file = "gub.RData")
 nrow(gub)
 names(gub)
 
@@ -28,21 +34,8 @@ gub
 # Restrict to Colorado-----
 source(here("scripts", "generate-boundaries-states-countries.R")) 
 
-#And I do this mutate 3 times so make a function
-mutate_gub = function(df){
-  df %>% 
-    mutate(
-      area_m2 = st_area(geometry),
-      area_km2 = area_m2*1e-6 ,
-      
-      #Find the 5th and 10th percentile by area to see about excluding,
-      #although ultimately it should be an absolute, not relative, cutoff
-      area_km2_quantile_5 = quantile(area_km2, .05)
-    )
-}
 gub_colorado = gub %>% 
-  st_intersection(colorado_boundary) %>% 
-  mutate_gub()
+  st_intersection(colorado_boundary) 
 
     
 #okay, it looks like the measure they give us is in square km
@@ -53,7 +46,6 @@ save(gub_colorado, file = "gub_colorado.RData")
 #to areas above a certain value. How about the 5th percentile and above?
 summary(gub_colorado$area_km2_quantile_5)
 gub_colorado %>%
-  filter(area_km2>=area_km2_quantile_5) %>% 
   mapview(zcol = "area_km2")
 
 #Make a Colorado one that's simplified (smaller size) for visualization
@@ -61,6 +53,7 @@ gub_colorado_simplified = gub_colorado %>%
   st_transform(2232) %>% 
   st_simplify(dTolerance = 500) %>% #simplify before mapview
   st_transform(4326)
+
 gub_colorado_simplified %>% mapview()
 save(gub_colorado_simplified, file = "gub_colorado_simplified.RData")
 object.size(gub_colorado_simplified)
@@ -72,8 +65,7 @@ object.size(gub_colorado)
 georgia_boundary %>% mapview()
 st_crs(gub)
 gub_georgia = gub %>% 
-  st_intersection(georgia_boundary) %>% 
-  mutate_gub()
+  st_intersection(georgia_boundary)
 
 gub_georgia %>% mapview()
 nrow(gub)
@@ -84,8 +76,8 @@ usa_boundaries_cont_48 %>% mapview()
 gub_usa_48 = gub %>% #whatever I did sped this up considerably.
   st_make_valid() %>% 
   st_intersection(usa_boundaries_cont_48_union)%>% 
-  st_make_valid() %>% 
-  mutate_gub()
+  st_make_valid() 
+
 gub_usa_48
 nrow(gub_usa_48)
 setwd(here("data-processed"))

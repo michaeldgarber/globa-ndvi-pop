@@ -151,16 +151,19 @@ ls_2019_colorado %>%
 #okay, go ahead.
 #January 25th, 2022: Since I'm using the same steps for the USA,
 #I'm going to make a function
+#Feb 9, 2023: out of curiosity, will this switch between tidyterra and dplyr 
+#without me writing tidyterra::rename? The answer is yes. Very cool.
+#This will allow me to use the same function for the global analysis
 landscan_pop_wrangle = function(df){
   df %>% 
     #rename the layers.
-    tidyterra::rename(
+    rename(
       rgb_1 = `landscan-global-2019-colorized_1` ,
       rgb_2 = `landscan-global-2019-colorized_2`,
       rgb_3 = `landscan-global-2019-colorized_3`,
       rgb_4 = `landscan-global-2019-colorized_4`) %>% 
     #now try to create the categories following the above scheme
-    tidyterra::mutate(
+    mutate(
       #   1 - 5: light yellow         rgb(255,255,190)
       # 6 - 25: medium yellow         rgb(255,255,115)
       # 26 - 50: yellow               rgb(255,255,0)
@@ -215,7 +218,7 @@ landscan_pop_wrangle = function(df){
       
     ) %>% 
     #drop the rgb values using the select helpers?
-    tidyterra::select(-starts_with("rgb"))
+    select(-starts_with("rgb"))
 }
 
 ls_2019_co_wrangle = ls_2019_colorado %>% 
@@ -273,7 +276,7 @@ terra::writeRaster(
 # All of USA (continental 48)-------
 ls_2019_usa_48 = ls_2019_global %>% 
   terra::crop(usa_boundaries_cont_48)
-dim(ls_2019_usa)
+
 time_start = Sys.time()
 ls_2019_usa_48_wrangle = ls_2019_usa_48 %>% 
   landscan_pop_wrangle() #this takes a few minutes.
@@ -300,16 +303,5 @@ ls_2019_usa_48$`landscan-global-2019-colorized_1` %>%
 #This takes several minutes to run.
 #Feb 9 2023: this didn't work. I need to convert it to a tibble first
 #and then do the data wrangling steps
+#So that's all for this script..
 
-time_start = Sys.time()
-ls_2019_global_wrangle = ls_2019_global %>% 
-  landscan_pop_wrangle() 
-time_stop = Sys.time()
-time_to_create_ls_2019_global_wrangle = time_stop-time_start
-
-setwd(here("data-processed"))
-terra::writeRaster(
-  ls_2019_global_wrangle,
-  overwrite=TRUE,
-  filename = "ls_2019_global_wrangle.tif" 
-)

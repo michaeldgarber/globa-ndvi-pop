@@ -25,7 +25,7 @@ un_pop_deaths_2019
 names(un_pop_deaths_2019)
 names(countries)
 #what happens if I try to link based on those two columns?
-countries_joined_with_un_pop_deaths_2019 = countries %>% 
+countries_joined_with_un_pop_deaths = countries %>% 
   #get rid of population variables here to avoid confusion
   #with the UN estimates
   dplyr::select(-contains("pop_")) %>% 
@@ -43,12 +43,12 @@ countries_joined_with_un_pop_deaths_2019 = countries %>%
   ) 
 
 setwd(here("data-processed"))
-save(countries_joined_with_un_pop_deaths_2019 , file = "countries_joined_with_un_pop_deaths_2019.RData")
+save(countries_joined_with_un_pop_deaths , file = "countries_joined_with_un_pop_deaths.RData")
 
-names(countries_joined_with_un_pop_deaths_2019)
-table(countries_joined_with_un_pop_deaths_2019$Year)
+names(countries_joined_with_un_pop_deaths)
+table(countries_joined_with_un_pop_deaths$Year) #2019. no need to specify in name
 #How many of the 177 joined? Okay, cool, just 30 didn't join, so go through them manually.
-countries_to_check = countries_joined_with_un_pop_deaths_2019  %>% 
+countries_to_check = countries_joined_with_un_pop_deaths  %>% 
   st_set_geometry(NULL) %>% 
   filter(join_worked ==0) %>% 
   dplyr::select(name_en) %>% 
@@ -64,17 +64,25 @@ countries_to_check #go back to the UN code.
 
 # A pared-down version-----
 #a version with fewer variables
-countries_joined_with_un_pop_deaths_2019_pared = countries_joined_with_un_pop_deaths_2019  %>% 
-  dplyr::select(starts_with("country_name"), contains("death"), contains("pop_"), contains("join"))
+countries_joined_with_un_pop_deaths_pared = countries_joined_with_un_pop_deaths  %>% 
+  dplyr::select(
+    starts_with("country_name"), contains("death"), contains("pop_"), contains("join")
+    )
 
-countries_joined_with_un_pop_deaths_2019_pared
+countries_joined_with_un_pop_deaths_pared
 setwd(here("data-processed"))
-save(countries_joined_with_un_pop_deaths_2019_pared, file = "countries_joined_with_un_pop_deaths_2019_pared.RData")
+save(countries_joined_with_un_pop_deaths_pared, file = "countries_joined_with_un_pop_deaths_pared.RData")
+
+#a version without geometry
+countries_joined_with_un_pop_deaths_pared_nogeo = countries_joined_with_un_pop_deaths_pared %>% 
+  st_set_geometry(NULL) %>% 
+  dplyr::as_tibble()
+
 
 # Restrict to USA for some analyses------
-countries_joined_with_un_pop_deaths_2019_pared_usa = countries_joined_with_un_pop_deaths_2019 %>% 
+countries_joined_with_un_pop_deaths_pared_usa = countries_joined_with_un_pop_deaths %>% 
   dplyr::select(starts_with("country_name"), contains("death"), contains("pop_"), contains("join")) %>% 
   filter(country_name_en=="United States of America")
 
-countries_joined_with_un_pop_deaths_2019_pared_usa
-names(countries_joined_with_un_pop_deaths_2019_pared_usa)
+countries_joined_with_un_pop_deaths_pared_usa
+names(countries_joined_with_un_pop_deaths_pared_usa)

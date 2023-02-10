@@ -20,15 +20,16 @@ library(tidyverse)
 library(mapview)
 library(tidyterra)
 
-# Load target raster and other rasters-------
+# USA----
+## Load USA files----
 #that which everything will be merged to
 setwd(here("data-processed"))
-## USA files----
 ls_2019_usa_48_wrangle = terra::rast("ls_2019_usa_48_wrangle.tif")
 ndvi_2019_usa_48 = terra::rast("ndvi_2019_usa_48.tif")
 biomes_14_usa_48_raster_biome_name = terra::rast("biomes_14_usa_48_raster_biome_name.tif")
 gub_usa_48_raster_orig_fid = terra::rast("gub_usa_48_raster_orig_fid.tif")
-countries_usa_48_raster_name_en = terra::rast("countries_usa_48_raster_name_en.tif")
+countries_usa_48_raster_country_name_en = terra::rast(
+  "countries_usa_48_raster_country_name_en.tif")
 
 #checks
 res(biomes_14_usa_48_raster_biome_name)
@@ -39,12 +40,12 @@ res(ndvi_2019_usa_48)
 res(ls_2019_usa_48_wrangle)
 res(gub_usa_48_raster_orig_fid)
 dim(gub_usa_48_raster_orig_fid)
+res(countries_usa_48_raster_country_name_en)
+dim(countries_usa_48_raster_country_name_en)
 
-## Global files-----
-#TBD
 
-# USA------
-## Use re-sample to make the resolution of the NDVI raster the same as the other.-----
+## Resample NDVI to be like landscan-------
+# Use re-sample to make the resolution of the NDVI raster the same as the other.
 #Note I don't have to do this for the rasterized vectors because they were rasterized
 #with respect to ls_2019_usa_48
 ndvi_2019_usa_48_resample = resample(
@@ -58,7 +59,7 @@ pop_ndvi_gub_biome_usa_48 = c(
   ndvi_2019_usa_48_resample,
   gub_usa_48_raster_orig_fid, #city boundaries
   biomes_14_usa_48_raster_biome_name, #biomes
-  countries_usa_48_raster_name_en #country boundaries
+  countries_usa_48_raster_country_name_en #country boundaries
   )
 
 #save
@@ -86,5 +87,61 @@ pop_ndvi_gub_biome_usa_48$BIOME_NAME %>%
 
 
 # Globally-----
+## Load global files-----
+#Note the procedure here will be somewhat distinct, because we're going to do the
+#wrangling of the landscan data in a subsequent step, so, here, just load
+#the "unwrangled" Landscan data.
+setwd(here("data-input", "ls-global-2019-alt-dl"))
+ls_2019_global = terra::rast("landscan-global-2019-colorized.tif")
+names(ls_2019_global)
+#source this rather than repeat the code
+source(here("scripts", "read-ndvi-global.R"))
+ndvi_2019_global
+setwd(here("data-processed"))
+biomes_14_raster_biome_name = terra::rast("biomes_14_raster_biome_name.tif")
+gub_raster_orig_fid = terra::rast("gub_raster_orig_fid.tif")
+countries_raster_country_name_en = terra::rast("countries_raster_country_name_en.tif")
+
+## Check dimensions / resolution
+dim(ls_2019_global)
+res(ls_2019_global)
+
+dim(biomes_14_raster_biome_name)
+res(biomes_14_raster_biome_name)
+
+dim(gub_raster_orig_fid)
+res(gub_raster_orig_fid)
+
+dim(countries_raster_country_name_en)
+res(countries_raster_country_name_en)
+
+
+## Resample NDVI to be like landscan-------
+# Use re-sample to make the resolution of the NDVI raster the same as the other.
+#Note I don't have to do this for the rasterized vectors because they were rasterized
+#with respect to ls_2019_usa_48
+ndvi_2019_global_resample = resample(
+  ndvi_2019_global, #raster to be resampled 
+  ls_2019_global #target resolution (for resolution)
+)
+dim(ndvi_2019_global_resample)
+res(ndvi_2019_global_resample)
+
+## Combine them using c()--------
+pop_ndvi_gub_biome = c(
+  ls_2019_global,  #landscan pop. categories (not yet wrangled here - global only)
+  ndvi_2019_global_resample, #ndvi
+  gub_raster_orig_fid, #city boundaries
+  biomes_14_raster_biome_name, #biomes
+  countries_raster_country_name_en #country boundaries
+)
+
+#save
+setwd(here("data-processed"))
+terra::writeRaster(
+  pop_ndvi_gub_biome,
+  overwrite=TRUE,
+  filename = "pop_ndvi_gub_biome.tif" 
+)
 
 
