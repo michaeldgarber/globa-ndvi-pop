@@ -321,7 +321,8 @@ hia_summary_gub_1mil_plus = pop_ndvi_gub_biome_tib %>%
   filter(pop_cat_mean_val_scaled>=1000000) 
   
 hia_summary_gub_1mil_plus
-
+setwd(here("data-processed"))
+save(hia_summary_gub_1mil_plus, file="hia_summary_gub_1mil_plus.RData")
 #### map cities 1 mil plus-----
 setwd(here("data-processed"))
 load("gub.RData")
