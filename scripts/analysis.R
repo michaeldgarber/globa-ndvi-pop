@@ -138,14 +138,14 @@ hia_summary_usa_48_gub = pop_ndvi_gub_biome_usa_48_tib %>%
 hia_summary_usa_48_biome
 #pop_ndvi_biome_usa_48_tib_summary %>% View()
 
-### Summarize by biome-----
+### Summarize by city-----
 hia_summary_usa_48_gub = pop_ndvi_gub_biome_usa_48_tib %>% 
   group_by(ORIG_FID) %>% 
   hia_summarise() 
 
 hia_summary_usa_48_gub
 
-#Link with vector data and visualize by city?
+#### Link with vector data and visualize by city-----
 gub_usa_48_hia = gub_usa_48 %>% 
   left_join(hia_summary_usa_48_gub, by = "ORIG_FID")
 setwd(here("data-processed"))
@@ -306,13 +306,57 @@ hia_summary_biome_gub= pop_ndvi_gub_biome_tib %>%
   hia_summarise() 
 hia_summary_biome_gub
 
+### Summarize by city-----
+hia_summary_gub= pop_ndvi_gub_biome_tib %>% 
+  group_by(ORIG_FID) %>% 
+  hia_summarise() 
+hia_summary_gub %>% 
+  arrange(desc(deaths_prevented_per_1k_pop))
+
+#### Cities: 1 million plus-----
+#Among cities above 1,000,000 people, what are the top 10?
+hia_summary_gub_1mil_plus = pop_ndvi_gub_biome_tib %>% 
+  group_by(ORIG_FID) %>% 
+  hia_summarise() %>% 
+  filter(pop_cat_mean_val_scaled>=1000000) 
+  
+hia_summary_gub_1mil_plus
+
+#### map cities 1 mil plus-----
+setwd(here("data-processed"))
+load("gub.RData")
+gub_hia_1mil_plus = gub %>% 
+  left_join(hia_summary_gub_1mil_plus, by = "ORIG_FID") %>% 
+  filter(pop_cat_mean_val_scaled >0)
+
+mv_gub_hia_1mil_plus=gub_hia_1mil_plus %>% 
+  mapview(
+    lwd=.1,
+    col.regions = viridis_pal(option = "plasma"),
+    layer.name = "deaths_prevented_per_1k_pop",
+    zcol = "deaths_prevented_per_1k_pop")
+
+object.size(mv_gub_hia_1mil_plus)
+
+#and one to top 100 by deaths per 1k
+mv_gub_hia_1mil_plus_top_100=gub_hia_1mil_plus %>% 
+  arrange(desc(deaths_prevented_per_1k_pop)) %>% 
+  slice(1:100) %>% 
+  mapview(
+    lwd=.1,
+    col.regions = viridis_pal(option = "plasma"),
+    layer.name = "deaths_prevented_per_1k_pop",
+    zcol = "deaths_prevented_per_1k_pop")
+
+
+mv_gub_hia_1mil_plus_top_100
 ### Summarize by biome-----
 hia_summary_biome = pop_ndvi_gub_biome_tib %>% 
   group_by(BIOME_NAME) %>% 
   hia_summarise() 
 
 
-### Summarize by country
+### Summarize by country----
 hia_summary_country = pop_ndvi_gub_biome_tib %>% 
   group_by(country_name_en) %>% 
   hia_summarise() 

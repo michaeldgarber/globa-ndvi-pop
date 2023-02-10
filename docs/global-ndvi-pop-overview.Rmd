@@ -75,9 +75,11 @@ HIA analysis complete for continental USA (48 states+DC) following those steps.
 
 Working on expanding to global.
 
+Discussion question: consider restricting to cities above a certain population?
+
 # Figures and tables
 
-## Depiction of data sources------
+## Depiction of data sources 
 ### Map of biomes (Continental USA)
 
 ```{r, eval=TRUE, echo=FALSE, warning=FALSE, message=FALSE}
@@ -89,10 +91,15 @@ library(here)
 setwd(here("data-processed"))
 load("biomes_14_usa_48.RData")
 load("biomes_14_usa_48_simplified.RData")
-biomes_14_usa_48 %>% mapview(
-  zcol = "BIOME_NAME",
-  col.regions = viridis::turbo(n=n_distinct(biomes_14_usa_48_simplified$BIOME_NAME)),
-  layer.name ="BIOME_NAME")
+#use smaller file for vis
+biomes_14_usa_48_simplified %>% 
+  mapview(
+    zcol = "BIOME_NAME",
+    col.regions = viridis::turbo(
+      n=n_distinct(biomes_14_usa_48_simplified$BIOME_NAME)
+      ),
+    layer.name ="BIOME_NAME"
+    )
 ```
 
 ### Map of Landscan population categories (Colorado)
@@ -141,13 +148,13 @@ gub_colorado_simplified %>%
 ```
 
 ## Results (Continental USA)
-### Results by biome (Continental USA)
+### Results by biome
 
 ```{r, eval=TRUE, echo=FALSE, warning=FALSE, message=FALSE}
 setwd(here("data-processed"))
-setwd(here("data-processed"))
 load("pop_ndvi_gub_biome_usa_48_tib.RData")
-#Write this function. Copied directly from analysis-test
+#Write this function. Copied directly from 
+#scripts/analysis.R
 hia_summarise = function(df){
   df %>% 
     summarise(
@@ -161,23 +168,32 @@ hia_summarise = function(df){
     ungroup() %>% 
     mutate(deaths_prevented_per_1k_pop = (deaths_prevented/pop_cat_mean_val_scaled)*1000) 
 }
-t = pop_ndvi_gub_biome_usa_48_tib %>% 
+t_biome_usa = pop_ndvi_gub_biome_usa_48_tib %>% 
   group_by(BIOME_NAME) %>% 
   hia_summarise() %>% 
-  dplyr::select(starts_with("BIOME"), starts_with("pop"), starts_with("ndvi"),starts_with("deaths") )
-t %>% 
+  dplyr::select(
+    starts_with("BIOME"), starts_with("pop"),
+    starts_with("ndvi"),starts_with("deaths") )
+t_biome_usa %>% 
   knitr::kable(
-    caption = "HIA results by biome",
+    caption = "HIA results by biome - Continental USA",
     #remove underscores in column names. easy way to make it more legible.
     #https://bookdown.org/yihui/rmarkdown-cookbook/kable.html
-    col.names = gsub("[_]", " ", names(t)),#remove underscores
+    col.names = gsub("[_]", " ", names(t_biome_usa)),#remove underscores
     format.args = list(big.mark = ",", scientific = FALSE),
     digits = c(0,0,2,2,2,0,0,3)
   )
 
 ```
+### Results by city
+Cities above 1,000,000 people (per Landscan) sorted ascending by deaths prevented per 1k pop (top 10)
+```{r, eval=TRUE, echo=FALSE, warning=FALSE, message=FALSE}
+setwd(here("data-processed"))
+load("lookup_gub_city_name.RData")
 
-### Deaths prevented per 1,000 population by city (Continental USA)
+```
+
+### Map: Deaths prevented per 1,000 population by city
 Results are presented at the level of the global urban boundary. Following the methods described above, they are first stratified by biome and are thus relative to biome within urban boundary if biome varies within urban boundary.
 
 ```{r, eval=TRUE, echo=FALSE, warning=FALSE, message=FALSE}
@@ -195,10 +211,87 @@ gub_usa_48_hia_simplified %>%
     zcol = "deaths_prevented_per_1k_pop")
 ```
 
+
 ## Results (Global)
 
-### How many cities includeds?
+### How many cities included?
+```{r, eval=TRUE, echo=FALSE, warning=FALSE, message=FALSE}
+setwd(here("data-processed"))
+load("pop_ndvi_gub_biome_tib.RData")
+hia_summary_gub= pop_ndvi_gub_biome_tib %>% 
+  group_by(ORIG_FID) %>% 
+  hia_summarise() 
+hia_summary_gub %>% 
+  nrow()
+```
 
-### Results by biome (Global)
+### Popluation distribution of cities included
+Based on summarized Landscan 2019 data (mean of categories)
 
-### Results by biome (Global)
+```{r, eval=TRUE, echo=FALSE, warning=FALSE, message=FALSE}
+setwd(here("data-processed"))
+load("gub_nogeo.RData")
+hia_summary_gub %>% 
+  dplyr::select(pop_cat_mean_val_scaled) %>% 
+  summary(pop_cat_mean_val_scaled)
+```
+### Area distribution of cities included
+```{r, eval=TRUE, echo=FALSE, warning=FALSE, message=FALSE}
+setwd(here("data-processed"))
+load("gub_nogeo.RData")
+gub_nogeo %>% 
+  dplyr::select(area_km2) %>% 
+  summary(area_km2)
+```
+
+
+### Results by biome
+```{r, eval=TRUE, echo=FALSE, warning=FALSE, message=FALSE}
+setwd(here("data-processed"))
+load("pop_ndvi_gub_biome_tib.RData")
+t_biome_global = pop_ndvi_gub_biome_tib %>% 
+  group_by(BIOME_NAME) %>% 
+  hia_summarise() %>% 
+  dplyr::select(
+    starts_with("BIOME"), starts_with("pop"),
+                starts_with("ndvi"),starts_with("deaths") )
+t_biome_global %>% 
+  knitr::kable(
+    caption = "HIA results by biome - global",
+    col.names = gsub("[_]", " ", names(t_biome_global)),#remove underscores
+    format.args = list(big.mark = ",", scientific = FALSE),
+    digits = c(0,0,2,2,2,0,0,3)
+  )
+
+```
+
+
+### Results by city
+Cities above 1,000,000 people (per Landscan) sorted ascending by deaths prevented per 1k pop (top 20)
+```{r, eval=TRUE, echo=FALSE, warning=FALSE, message=FALSE}
+setwd(here("data-processed"))
+#city name lookup created scripts/read-gub.R
+load("lookup_gub_city_name.RData")
+load("lookup_city_id_country.RData")
+hia_summary_gub_1mil_plus = pop_ndvi_gub_biome_tib %>% 
+  group_by(ORIG_FID) %>% 
+  hia_summarise() %>% 
+  filter(pop_cat_mean_val_scaled>=1000000) %>% 
+  left_join(lookup_gub_city_name, by = "ORIG_FID") %>% 
+  left_join(lookup_city_id_country, by = "city_id") %>% 
+  dplyr::select(
+    city, country, starts_with("pop"),
+    starts_with("ndvi"),starts_with("deaths")
+  ) 
+hia_summary_gub_1mil_plus %>% 
+  arrange(desc(deaths_prevented_per_1k_pop)) %>% 
+  slice(1:20) %>% 
+  knitr::kable(
+    caption = "HIA results by city - top 20 deaths prevented per pop.",
+    col.names = gsub("[_]", " ", names(hia_summary_gub_1mil_plus)),#remove underscores
+    format.args = list(big.mark = ",", scientific = FALSE),
+    digits = c(0,0,0,2,2,2,0,0,3)
+  )
+```
+
+

@@ -16,7 +16,7 @@ getwd()
 gub = st_read(dsn ="GUB_Global_2018") %>%
   st_transform(4326) %>% 
   mutate(  #measure area this way
-    area_m2 = st_area(geometry),
+    area_m2 = as.numeric(st_area(geometry)),
     area_km2 = area_m2*1e-6 
   )
 setwd(here("data-processed"))
@@ -24,9 +24,17 @@ save(gub, file = "gub.RData")
 nrow(gub)
 names(gub)
 
-gub
-# could save it to the data processed folder as an R object.
-#actually wait til you make any changes to it.
+gub %>% 
+  st_set_geometry(NULL) %>% 
+  ggplot()+
+  geom_histogram(
+    aes(area_km2),bins=100)
+
+#a version without geometry for presentations
+gub_nogeo = gub %>% 
+  st_set_geometry(NULL)
+setwd(here("data-processed"))
+save(gub_nogeo, file = "gub_nogeo.RData")
 
 #gub %>% mapview() #great - works!
 #gub %>% plot()
@@ -37,7 +45,38 @@ source(here("scripts", "generate-boundaries-states-countries.R"))
 gub_colorado = gub %>% 
   st_intersection(colorado_boundary) 
 
-    
+#link with city point data to get names 
+source(here("scripts","generate-boundaries-states-countries.R"))
+names(cities_pt)
+cities_pt
+gub_names = gub %>% 
+  st_join(cities_pt) %>% 
+  #if there are many points within a given polygon,
+  #take the one with the largest population
+  group_by(ORIG_FID) %>% 
+  arrange(desc(population)) %>% 
+  slice(1) %>% 
+  ungroup()
+
+names(gub_names)
+lookup_gub_city_name = gub_names %>% 
+  st_set_geometry(NULL) %>% 
+  distinct(ORIG_FID, city, city_id)
+setwd(here("data-processed"))
+save(lookup_gub_city_name, file = "lookup_gub_city_name.RData")
+
+gub_names %>% 
+  filter(population>10000000) %>% 
+  mapview(zcol = "city")
+gub_orig_fid_many_names=gub_names %>% 
+  st_set_geometry(NULL) %>% 
+  as_tibble() %>% 
+  group_by(ORIG_FID) %>% 
+  summarise(n=n()) %>% 
+  mutate(orig_fid_many_names = case_when(n>1~1,TRUE~0))
+
+gub_orig_fid_many_names %>% 
+  filter(orig_fid_many_names==1)
 #okay, it looks like the measure they give us is in square km
 setwd(here("data-processed"))
 save(gub_colorado, file = "gub_colorado.RData")

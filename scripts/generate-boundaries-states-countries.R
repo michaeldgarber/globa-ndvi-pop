@@ -66,3 +66,27 @@ mapview(countries, zcol = "wb_a2")
 # countries %>% 
 #   filter(name_en == "United States of America") %>% 
 #   mapview(zcol = "name_en")
+
+# Global cities----
+#maybe just download these?
+#https://simplemaps.com/data/world-cities
+library(here)
+setwd(here("data-input","simplemaps_worldcities_basicv1"))
+library(readr)
+cities_pt = readr::read_csv("worldcities.csv") %>% 
+  st_as_sf(coords = c("lng", "lat"), crs = 4326) %>% 
+  rename(city_id=id)
+
+setwd(here("data-processed"))
+save(cities_pt, file = "cities_pt.RData")
+nrow(cities_pt)
+names(cities_pt)
+cities_pt %>% 
+  st_set_geometry(NULL)
+#for a given city id (use id, not name), what is country?
+lookup_city_id_country = cities_pt %>% 
+  st_set_geometry(NULL) %>% 
+  distinct(country,city_id)
+
+setwd(here("data-processed"))
+save(lookup_city_id_country, file ="lookup_city_id_country.RData")

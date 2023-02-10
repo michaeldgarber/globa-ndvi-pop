@@ -68,7 +68,8 @@ object.size(biomes_14)
 setwd(here("data-processed"))
 save(biomes_14, file = "biomes_14.RData")
 
-biomes_14 %>% mapview(zcol = "BIOME_NAME")
+biomes_14 %>% 
+  mapview(zcol = "BIOME_NAME")
 
 # Restrict to Colorado----
 sf::sf_use_s2(FALSE)
