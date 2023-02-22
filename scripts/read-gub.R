@@ -65,7 +65,8 @@ cities_pt
 gub_names = gub %>% 
   st_join(cities_geonames) %>% 
   #if there are many points within a given polygon,
-  #take the one with the largest population. that will be the corresponding name
+  #take the one with the largest population. 
+  #that will be the corresponding name
   group_by(ORIG_FID) %>% 
   arrange(desc(city_population)) %>% 
   slice(1) %>% 
@@ -73,12 +74,12 @@ gub_names = gub %>%
 
 gub_names
 names(gub_names)
-lookup_gub_city_id = gub_names %>% 
+lookup_gub_geoname_id = gub_names %>% 
   arrange(desc(city_population)) %>% 
   st_set_geometry(NULL) %>% 
   distinct(ORIG_FID, geoname_id)
 setwd(here("data-processed"))
-save(lookup_gub_city_id, file = "lookup_gub_city_id.RData")
+save(lookup_gub_geoname_id, file = "lookup_gub_geoname_id.RData")
 
 lookup_gub_city_name = gub_names %>% 
   arrange(desc(city_population)) %>% 
@@ -158,5 +159,8 @@ gub_usa_48
 nrow(gub_usa_48)
 setwd(here("data-processed"))
 save(gub_usa_48, file = "gub_usa_48.RData")
+
+#where is 54733
+gub_usa_48 %>% filter(ORIG_FID=="54733") %>% mapview()
 
 

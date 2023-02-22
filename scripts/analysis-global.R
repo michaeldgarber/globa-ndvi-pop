@@ -210,6 +210,9 @@ lookup_city_biome_majority = lookup_city_biome %>%
 lookup_city_biome_majority  %>% 
   print(n=100)
 
+#save in case I use in other code
+setwd(here("data-processed"))
+save(lookup_city_biome_majority, file = "lookup_city_biome_majority.RData")
 #There are apparenlty some cities that don't have a biome under this method.
 lookup_city_biome_majority %>% 
   filter(is.na(BIOME_NAME)==TRUE) %>% 
@@ -259,7 +262,7 @@ pop_ndvi_gub_biome_tib = pop_ndvi_gub_biome_tib_gub_not_miss %>%
 #Done! 
 setwd(here("data-processed"))
 save(pop_ndvi_gub_biome_tib, file = "pop_ndvi_gub_biome_tib.RData")
-load("pop_ndvi_gub_biome_tib.RData")
+#load("pop_ndvi_gub_biome_tib.RData")
 pop_ndvi_gub_biome_tib
 
 #how do the filters affect the number of rows?
@@ -267,7 +270,7 @@ nrow(pop_ndvi_gub_biome_tib)#1193569 if no pop or area filter
 #1026388 with the 5 km2 filters and 1,000 pop
 names(pop_ndvi_gub_biome_tib)
 object.size(pop_ndvi_gub_biome_tib) 
-
+table(pop_ndvi_gub_biome_tib$pop_cat_max_fac)
 # Summary----
 #Add some area and population filters per mtg with David and Tarik Feb 10 2023
 #Note the filters will be applied at the level of the city, not the pixel,
@@ -291,7 +294,7 @@ hia_summary_gub= pop_ndvi_gub_biome_tib %>%
   group_by(ORIG_FID) %>% 
   hia_summarise() 
 hia_summary_gub %>% 
-  arrange(desc(deaths_prevented_per_1k_pop))
+  arrange(desc(deaths_prevented_per_1k_pop_mean))
 
 ### Cities: 1 million plus-----
 #Among cities above 1,000,000 people, what are the top 10?
@@ -314,24 +317,56 @@ mv_gub_hia_1mil_plus=gub_hia_1mil_plus %>%
   mapview(
     lwd=.1,
     col.regions = viridis_pal(option = "plasma"),
-    layer.name = "deaths_prevented_per_1k_pop",
-    zcol = "deaths_prevented_per_1k_pop")
+    layer.name = "deaths_prevented_per_1k_pop_mean",
+    zcol = "deaths_prevented_per_1k_pop_mean")
 
+mv_gub_hia_1mil_plus
 object.size(mv_gub_hia_1mil_plus)
-
 #and one to top 100 by deaths per 1k
 library(viridis)
+names(gub_hia_1mil_plus)
 mv_gub_hia_1mil_plus_top_100=gub_hia_1mil_plus %>% 
-  arrange(desc(deaths_prevented_per_1k_pop)) %>% 
+  arrange(desc(deaths_prevented_per_1k_pop_mean)) %>% 
   slice(1:100) %>% 
+  #add name
+  left_join(lookup_gub_city_name, by = "ORIG_FID") %>% 
+  dplyr::select(
+    starts_with("ORIG_FID"),
+    starts_with("city_n"), everything()) %>% 
   mapview(
     lwd=.1,
     col.regions = viridis_pal(option = "plasma"),
-    layer.name = "deaths_prevented_per_1k_pop",
-    zcol = "deaths_prevented_per_1k_pop")
-
+    layer.name = "deaths_prevented_per_1k_pop_mean",
+    zcol = "deaths_prevented_per_1k_pop_mean")
 
 mv_gub_hia_1mil_plus_top_100
+#make them centroids for easier vis
+mv_gub_hia_1mil_plus_top_100_centroid=gub_hia_1mil_plus %>% 
+  arrange(desc(deaths_prevented_per_1k_pop_mean)) %>% 
+  slice(1:100) %>% 
+  st_centroid() %>% 
+  mapview(
+    lwd=.1,
+    col.regions = viridis_pal(option = "plasma"),
+    layer.name = "deaths_prevented_per_1k_pop_mean",
+    zcol = "deaths_prevented_per_1k_pop_mean")
+
+
+mv_gub_hia_1mil_plus_top_100_centroid
+
+### Number of population categories in each city / biome---
+#note we don't need variation by this to do the analysis,
+#but it's worth investigating. how much does pop. vary within city?
+n_pop_cat_by_city_biome = pop_ndvi_gub_biome_tib %>% 
+  group_by(country_name_en, biome_name_imp, ORIG_FID, pop_cat_1_8) %>%
+  summarise(n_pixels_in_cat=n()) %>% 
+  ungroup() %>% 
+  group_by(country_name_en, biome_name_imp, ORIG_FID) %>% 
+  summarise(n_pop_cat=n()) %>% #how many pop. categories within group?
+  ungroup()
+
+n_pop_cat_by_city_biome
+summary(n_pop_cat_by_city_biome$n_pop_cat)
 ## Summarize by biome-----
 hia_summary_biome = pop_ndvi_gub_biome_tib %>% 
   group_by(biome_name_imp) %>% 
@@ -371,7 +406,7 @@ hia_summary_country = pop_ndvi_gub_biome_tib %>%
   hia_summarise() 
 
 hia_summary_country %>% 
-  arrange(desc(deaths_prevented_per_1k_pop)) %>% 
+  arrange(desc(deaths_prevented_per_1k_pop_mean)) %>% 
   print(n=100)
 
 

@@ -153,26 +153,12 @@ gub_colorado_simplified %>%
 ```{r, eval=TRUE, echo=FALSE, warning=FALSE, message=FALSE}
 setwd(here("data-processed"))
 load("pop_ndvi_gub_biome_usa_48_tib.RData")
-#Write this function. Copied directly from 
-#scripts/analysis.R
-hia_summarise = function(df){
-  df %>% 
-    summarise(
-      pop_cat_mean_val_scaled = sum(pop_cat_mean_val_scaled,na.rm=TRUE),
-      deaths_baseline = sum(deaths_baseline, na.rm=TRUE),
-      deaths_prevented = sum(deaths_prevented, na.rm=TRUE),
-      ndvi_2019_mean = mean(ndvi_2019, na.rm=TRUE),
-      ndvi_2019_sd = sd(ndvi_2019, na.rm=TRUE),
-      ndvi_diff_mean = mean(ndvi_diff, na.rm=TRUE)
-    ) %>% 
-    ungroup() %>% 
-    mutate(deaths_prevented_per_1k_pop = (deaths_prevented/pop_cat_mean_val_scaled)*1000) 
-}
+source(here("scripts", "analysis-functions.R")) #for hia_summarise() function
 t_biome_usa = pop_ndvi_gub_biome_usa_48_tib %>% 
-  group_by(BIOME_NAME) %>% 
+  group_by(biome_name_imp) %>% 
   hia_summarise() %>% 
   dplyr::select(
-    starts_with("BIOME"), starts_with("pop"),
+    starts_with("biome"), starts_with("pop"),
     starts_with("ndvi"),starts_with("deaths") )
 t_biome_usa %>% 
   knitr::kable(
@@ -190,7 +176,15 @@ Cities above 1,000,000 people (per Landscan) sorted ascending by deaths prevente
 ```{r, eval=TRUE, echo=FALSE, warning=FALSE, message=FALSE}
 setwd(here("data-processed"))
 load("lookup_gub_city_name.RData")
+hia_summary_usa_48_gub = pop_ndvi_gub_biome_usa_48_tib %>% 
+  group_by(ORIG_FID) %>% 
+  hia_summarise() %>% 
+  arrange(desc(deaths_prevented_per_1k_pop_mean)) %>% 
+  slice(1:100) %>% 
+  left_join(lookup_gub_city_name, by = "ORIG_FID") %>% 
+  dplyr::select(ORIG_FID, city_name, everything())
 
+hia_summary_usa_48_gub
 ```
 
 ### Map: Deaths prevented per 1,000 population by city
@@ -207,8 +201,8 @@ gub_usa_48_hia_simplified %>%
   mapview(
     lwd=.1,
     col.regions = viridis_pal(option = "plasma"),
-    layer.name = "Deaths prevented per 1k pop",
-    zcol = "deaths_prevented_per_1k_pop")
+    layer.name = "Deaths prevented per 1k pop, mean",
+    zcol = "deaths_prevented_per_1k_pop_mean")
 ```
 
 
@@ -250,10 +244,10 @@ gub_nogeo %>%
 setwd(here("data-processed"))
 load("pop_ndvi_gub_biome_tib.RData")
 t_biome_global = pop_ndvi_gub_biome_tib %>% 
-  group_by(BIOME_NAME) %>% 
+  group_by(biome_name_imp) %>% 
   hia_summarise() %>% 
   dplyr::select(
-    starts_with("BIOME"), starts_with("pop"),
+    starts_with("biom"), starts_with("pop"),
                 starts_with("ndvi"),starts_with("deaths") )
 t_biome_global %>% 
   knitr::kable(
@@ -270,25 +264,28 @@ t_biome_global %>%
 Cities above 1,000,000 people (per Landscan) sorted ascending by deaths prevented per 1k pop (top 20)
 ```{r, eval=TRUE, echo=FALSE, warning=FALSE, message=FALSE}
 setwd(here("data-processed"))
-#city name lookup created scripts/read-gub.R
-load("lookup_gub_city_name.RData")
-load("lookup_city_id_country.RData")
+source(here("scripts","generate-boundaries-states-countries.R"))#
+load("lookup_gub_geoname_id.RData")#gub geoname id lookup created ~read-gub.R
+
 load("hia_summary_gub_1mil_plus.RData")#analysis
 hia_summary_gub_1mil_plus_4_vis = hia_summary_gub_1mil_plus %>% 
-  left_join(lookup_gub_city_name, by = "ORIG_FID") %>% 
-  left_join(lookup_city_id_country, by = "city_id") %>% 
+  left_join(lookup_gub_geoname_id, by = "ORIG_FID") %>% #lookup city id
+  left_join(lookup_geoname_id_city_name, by = "geoname_id") %>% #lookup city name
+  left_join(lookup_geoname_id_country_name, by = "geoname_id") %>% #country name
   dplyr::select(
-    city, country, starts_with("pop"),
+    starts_with("city_name"),
+    starts_with("country_name"), 
+    starts_with("pop"),
     starts_with("ndvi"),starts_with("deaths")
   ) 
 hia_summary_gub_1mil_plus_4_vis %>% 
-  arrange(desc(deaths_prevented_per_1k_pop)) %>% 
+  arrange(desc(deaths_prevented_per_1k_pop_mean)) %>% 
   slice(1:20) %>% 
   knitr::kable(
     caption = "HIA results by city - top 20 deaths prevented per pop.",
     col.names = gsub("[_]", " ", names(hia_summary_gub_1mil_plus_4_vis)),#remove underscores
+#  digits = c(0,0,0,2,2,2,0,0,3)
     format.args = list(big.mark = ",", scientific = FALSE),
-    digits = c(0,0,0,2,2,2,0,0,3)
   )
 ```
 
@@ -304,7 +301,7 @@ mapviewOptions(
 )
 
 hia_summary_gub_1mil_plus %>% 
-  arrange(desc(deaths_prevented_per_1k_pop)) %>% 
+  arrange(desc(deaths_prevented_per_1k_pop_mean)) %>% 
   slice(1:100) %>% 
   left_join(gub, by = "ORIG_FID") %>% 
   left_join(lookup_gub_city_name, by = "ORIG_FID") %>% 
@@ -313,8 +310,8 @@ hia_summary_gub_1mil_plus %>%
   mapview(
     lwd=.1,
     col.regions = viridis_pal(option = "plasma"),
-    layer.name = "Deaths prevented per 1k pop",
-    zcol = "deaths_prevented_per_1k_pop")
+    layer.name = "Deaths prevented per 1k pop, mean",
+    zcol = "deaths_prevented_per_1k_pop_mean")
 ```
 
 
