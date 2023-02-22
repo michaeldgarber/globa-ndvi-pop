@@ -24,6 +24,7 @@ load("gub_colorado.RData") #Global urban boundaries
 #https://geocompr.robinlovelace.net/raster-vector.html#rasterization
 
 #use landscan as target raster throughout, as it's somewhat higher resolution than NDVI
+setwd(here("data-processed"))
 ls_2019_usa_48_wrangle = terra::rast("ls_2019_usa_48_wrangle.tif") 
 
 
@@ -41,6 +42,8 @@ terra::writeRaster(
   overwrite=TRUE,
   filename = "gub_usa_48_raster_orig_fid.tif" 
 )
+
+
 
 ## Global------
 setwd(here("data-input", "ls-global-2019-alt-dl"))
@@ -76,6 +79,10 @@ terra::writeRaster(
   overwrite=TRUE,
   filename = "biomes_14_usa_48_raster_biome_name.tif" 
 )
+
+#to examine the issue of some pixels having missing pixels, look at vector
+#vs raster of biomes
+plot(biomes_14_usa_48_raster_biome_name)
 
 biomes_14_usa_48_raster_biome_name %>% 
   as_tibble() %>% 

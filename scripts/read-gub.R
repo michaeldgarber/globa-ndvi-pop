@@ -30,44 +30,69 @@ gub %>%
   geom_histogram(
     aes(area_km2),bins=100)
 
+#gub %>% mapview() #great - works!
+#gub %>% plot()
+
+## Lookups and modified versions-------
 #a version without geometry for presentations
 gub_nogeo = gub %>% 
   st_set_geometry(NULL)
 setwd(here("data-processed"))
 save(gub_nogeo, file = "gub_nogeo.RData")
 
-#gub %>% mapview() #great - works!
-#gub %>% plot()
+### geometry lookup------
+# lookup for the geometry
+lookup_gub_orig_fid_geo = gub %>% 
+  dplyr::select(ORIG_FID, geometry)
 
-# Restrict to Colorado-----
-source(here("scripts", "generate-boundaries-states-countries.R")) 
+setwd(here("data-processed"))
+save(lookup_gub_orig_fid_geo, file = "lookup_gub_orig_fid_geo.RData")
 
-gub_colorado = gub %>% 
-  st_intersection(colorado_boundary) 
+### lookup for city's area----
+lookup_gub_area_km2 = gub %>% 
+  st_set_geometry(NULL) %>% 
+  as_tibble() %>% 
+  dplyr::select(ORIG_FID, area_km2)
 
-#link with city point data to get names 
+save(lookup_gub_area_km2, file = "lookup_gub_area_km2.RData")
+
+### Link with city-name data--------  
+#Use the geonames data instead
 source(here("scripts","generate-boundaries-states-countries.R"))
 names(cities_pt)
+names(cities_geonames)#using this now Feb 21 2023
 cities_pt
 gub_names = gub %>% 
-  st_join(cities_pt) %>% 
+  st_join(cities_geonames) %>% 
   #if there are many points within a given polygon,
-  #take the one with the largest population
+  #take the one with the largest population. that will be the corresponding name
   group_by(ORIG_FID) %>% 
-  arrange(desc(population)) %>% 
+  arrange(desc(city_population)) %>% 
   slice(1) %>% 
   ungroup()
 
+gub_names
 names(gub_names)
-lookup_gub_city_name = gub_names %>% 
+lookup_gub_city_id = gub_names %>% 
+  arrange(desc(city_population)) %>% 
   st_set_geometry(NULL) %>% 
-  distinct(ORIG_FID, city, city_id)
+  distinct(ORIG_FID, geoname_id)
+setwd(here("data-processed"))
+save(lookup_gub_city_id, file = "lookup_gub_city_id.RData")
+
+lookup_gub_city_name = gub_names %>% 
+  arrange(desc(city_population)) %>% 
+  st_set_geometry(NULL) %>% 
+  distinct(ORIG_FID, city_name)
 setwd(here("data-processed"))
 save(lookup_gub_city_name, file = "lookup_gub_city_name.RData")
 
+lookup_gub_city_name %>% 
+  print(n=100)
 gub_names %>% 
-  filter(population>10000000) %>% 
-  mapview(zcol = "city")
+  filter(city_population>8000000) %>% 
+  mapview(zcol = "city_name")
+
 gub_orig_fid_many_names=gub_names %>% 
   st_set_geometry(NULL) %>% 
   as_tibble() %>% 
@@ -77,6 +102,18 @@ gub_orig_fid_many_names=gub_names %>%
 
 gub_orig_fid_many_names %>% 
   filter(orig_fid_many_names==1)
+
+
+# What ORIG_FID is Tokyo?
+
+
+# Restrict to Colorado-----
+source(here("scripts", "generate-boundaries-states-countries.R")) 
+
+gub_colorado = gub %>% 
+  st_intersection(colorado_boundary) 
+
+
 #okay, it looks like the measure they give us is in square km
 setwd(here("data-processed"))
 save(gub_colorado, file = "gub_colorado.RData")
