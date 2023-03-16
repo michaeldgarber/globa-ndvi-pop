@@ -149,77 +149,9 @@ ls_2019_colorado %>%
   mutate( hi = 5) #yes, looks like it
 
 #okay, go ahead.
-#January 25th, 2022: Since I'm using the same steps for the USA,
-#I'm going to make a function
-#Feb 9, 2023: out of curiosity, will this switch between tidyterra and dplyr 
-#without me writing tidyterra::rename? The answer is yes. Very cool.
-#This will allow me to use the same function for the global analysis
-landscan_pop_wrangle = function(df){
-  df %>% 
-    #rename the layers.
-    rename(
-      rgb_1 = `landscan-global-2019-colorized_1` ,
-      rgb_2 = `landscan-global-2019-colorized_2`,
-      rgb_3 = `landscan-global-2019-colorized_3`,
-      rgb_4 = `landscan-global-2019-colorized_4`) %>% 
-    #now try to create the categories following the above scheme
-    mutate(
-      #   1 - 5: light yellow         rgb(255,255,190)
-      # 6 - 25: medium yellow         rgb(255,255,115)
-      # 26 - 50: yellow               rgb(255,255,0)
-      # 51 - 100: orange              rgb(255,170,0)
-      # 101 - 500: orange-red         rgb(255,102,0)
-      # 501 - 2500: red               rgb(255,0,0)
-      # 2501 - 5000: dark red         rgb(204,0,0)
-      # 5001 - 185000: maroon         rgb(115,0,0)
-      #The actual value
-      pop_cat_max_val = case_when(
-        rgb_1==255 & rgb_2 == 255 & rgb_3 == 190 ~5,
-        rgb_1==255 & rgb_2 == 255 & rgb_3 == 115 ~25,
-        rgb_1==255 & rgb_2 == 255 & rgb_3 == 0 ~50,
-        rgb_1==255 & rgb_2 == 170 & rgb_3 == 0 ~100,
-        rgb_1==255 & rgb_2 == 102 & rgb_3 == 0 ~500,
-        rgb_1==255 & rgb_2 == 0 & rgb_3 == 0 ~2500,
-        rgb_1==204 & rgb_2 == 0 & rgb_3 == 0 ~5000,
-        rgb_1==115 & rgb_2 == 0 & rgb_3 == 0 ~185000,
-        TRUE ~ 0
-      ),
-      pop_cat_min_val = case_when(
-        rgb_1==255 & rgb_2 == 255 & rgb_3 == 190 ~1,
-        rgb_1==255 & rgb_2 == 255 & rgb_3 == 115 ~6,
-        rgb_1==255 & rgb_2 == 255 & rgb_3 == 0 ~26,
-        rgb_1==255 & rgb_2 == 170 & rgb_3 == 0 ~51,
-        rgb_1==255 & rgb_2 == 102 & rgb_3 == 0 ~101,
-        rgb_1==255 & rgb_2 == 0 & rgb_3 == 0 ~501,
-        rgb_1==204 & rgb_2 == 0 & rgb_3 == 0 ~2501,
-        rgb_1==115 & rgb_2 == 0 & rgb_3 == 0 ~5001,
-        TRUE ~ 0
-      ),
-      #a factor category
-      pop_cat_max_fac = as.factor(pop_cat_max_val),
-      
-      #The simple mean of the two ((min+max)/2)for point estimates
-      pop_cat_mean_val = case_when(
-        is.na(pop_cat_min_val)==TRUE ~ NA_real_,
-        TRUE ~ (pop_cat_max_val+pop_cat_min_val)/2),
-      
-      #a simple numeric for the 8 categories: - 1-8
-      pop_cat_1_8 = case_when(
-        pop_cat_max_val == 5 ~ 1,
-        pop_cat_max_val == 25 ~ 2,
-        pop_cat_max_val == 50 ~ 3,
-        pop_cat_max_val == 100 ~ 4,
-        pop_cat_max_val == 500 ~ 5,
-        pop_cat_max_val == 2500 ~ 6,
-        pop_cat_max_val == 5000 ~ 7,
-        pop_cat_max_val == 185000 ~ 8,
-        TRUE ~ 0
-      )
-      
-    ) %>% 
-    #drop the rgb values using the select helpers?
-    select(-starts_with("rgb"))
-}
+#Feb 22, 2023: I've moved this function to this script,
+#as it's used elsewhere.
+source(here("scripts", "analysis-functions.R")) 
 
 ls_2019_co_wrangle = ls_2019_colorado %>% 
   landscan_pop_wrangle() 
@@ -304,4 +236,6 @@ ls_2019_usa_48$`landscan-global-2019-colorized_1` %>%
 #Feb 9 2023: this didn't work. I need to convert it to a tibble first
 #and then do the data wrangling steps
 #So that's all for this script..
+#Continued
+#~scripts/analysis-global.R
 

@@ -1,8 +1,90 @@
 #Analysis functions
 # Created as its own script Feb 21, 2023
 
+# Wrangle landscan population data-------
+#January 25th, 2022: Since I'm using the same steps for the USA,
+#I'm going to make a function
+#Feb 9, 2023: out of curiosity, will this switch between tidyterra and dplyr 
+#without me writing tidyterra::rename? The answer is yes. Very cool.
+#This will allow me to use the same function for the global analysis
+
+
+landscan_pop_wrangle = function(df){
+  df %>% 
+    #rename the layers.
+    rename(
+      rgb_1 = `landscan-global-2019-colorized_1` ,
+      rgb_2 = `landscan-global-2019-colorized_2`,
+      rgb_3 = `landscan-global-2019-colorized_3`,
+      rgb_4 = `landscan-global-2019-colorized_4`) %>% 
+    #now try to create the categories following the above scheme
+    mutate(
+      #   1 - 5: light yellow         rgb(255,255,190)
+      # 6 - 25: medium yellow         rgb(255,255,115)
+      # 26 - 50: yellow               rgb(255,255,0)
+      # 51 - 100: orange              rgb(255,170,0)
+      # 101 - 500: orange-red         rgb(255,102,0)
+      # 501 - 2500: red               rgb(255,0,0)
+      # 2501 - 5000: dark red         rgb(204,0,0)
+      # 5001 - 185000: maroon         rgb(115,0,0)
+      #The actual value
+      pop_cat_max_val = case_when(
+        rgb_1==255 & rgb_2 == 255 & rgb_3 == 190 ~5,
+        rgb_1==255 & rgb_2 == 255 & rgb_3 == 115 ~25,
+        rgb_1==255 & rgb_2 == 255 & rgb_3 == 0 ~50,
+        rgb_1==255 & rgb_2 == 170 & rgb_3 == 0 ~100,
+        rgb_1==255 & rgb_2 == 102 & rgb_3 == 0 ~500,
+        rgb_1==255 & rgb_2 == 0 & rgb_3 == 0 ~2500,
+        rgb_1==204 & rgb_2 == 0 & rgb_3 == 0 ~5000,
+        rgb_1==115 & rgb_2 == 0 & rgb_3 == 0 ~185000,
+        TRUE ~ 0
+      ),
+      pop_cat_min_val = case_when(
+        rgb_1==255 & rgb_2 == 255 & rgb_3 == 190 ~1,
+        rgb_1==255 & rgb_2 == 255 & rgb_3 == 115 ~6,
+        rgb_1==255 & rgb_2 == 255 & rgb_3 == 0 ~26,
+        rgb_1==255 & rgb_2 == 170 & rgb_3 == 0 ~51,
+        rgb_1==255 & rgb_2 == 102 & rgb_3 == 0 ~101,
+        rgb_1==255 & rgb_2 == 0 & rgb_3 == 0 ~501,
+        rgb_1==204 & rgb_2 == 0 & rgb_3 == 0 ~2501,
+        rgb_1==115 & rgb_2 == 0 & rgb_3 == 0 ~5001,
+        TRUE ~ 0
+      ),
+      
+      #The simple mean of the two ((min+max)/2)for point estimates
+      pop_cat_mean_val = case_when(
+        is.na(pop_cat_min_val)==TRUE ~ NA_real_,
+        TRUE ~ (pop_cat_max_val+pop_cat_min_val)/2),
+      
+      #factor categories to facilitate some of the visualizations
+      pop_cat_max_fac = as.factor(pop_cat_max_val),
+      pop_cat_mean_fac = as.factor(pop_cat_mean_val),
+
+      #a simple numeric for the 8 categories: - 1-8
+      pop_cat_1_8 = case_when(
+        pop_cat_max_val == 5 ~ 1,
+        pop_cat_max_val == 25 ~ 2,
+        pop_cat_max_val == 50 ~ 3,
+        pop_cat_max_val == 100 ~ 4,
+        pop_cat_max_val == 500 ~ 5,
+        pop_cat_max_val == 2500 ~ 6,
+        pop_cat_max_val == 5000 ~ 7,
+        pop_cat_max_val == 185000 ~ 8,
+        TRUE ~ 0
+      )
+      
+    ) %>% 
+    #drop the rgb values using the select helpers?
+    select(-starts_with("rgb"))
+}
+
+
 # Mutate steps for HIA-------
 #after the data has already been grouped
+#March 10, 2023 update:
+#I'm thinking about how to incorporate the bounds of the dose-response function.
+#I could make the data long form, but I think that may overcomplicate.
+#Just create additional variables wide-form.
 mutate_steps_hia_ndvi_pop = function(df){
   df %>% 
     mutate( #use group_by() %>% mutate() rather than group_by() %>% summarise()
@@ -32,24 +114,69 @@ mutate_steps_hia_ndvi_pop = function(df){
       pop_cat_min_val_scaled = pop_cat_min_val*pop_ratio_20_plus,
       pop_cat_max_val_scaled = pop_cat_max_val*pop_ratio_20_plus,
       
-      rr_alt = drf_est**(ndvi_diff/drf_increment), #calc. risk ratios per dose-response funct
-      paf =(rr_alt -1)/rr_alt , #pop_est attrib fraction
+      #a factor version of this
+      pop_cat_mean_val_scaled_fac = as.factor(pop_cat_mean_val_scaled),
+      
+#      using pt to have a suffix - Mar 10, 2023
+      rr_alt_pt = drf_est**(ndvi_diff/drf_increment), #calc. risk ratios per dose-response funct
+      rr_alt_ll = drf_ll**(ndvi_diff/drf_increment),#adding bounds Mar 10, 2023
+      rr_alt_ul = drf_ul**(ndvi_diff/drf_increment),#adding bounds Mar 10, 2023
+
+      paf_pt =(rr_alt_pt -1)/rr_alt_pt , #pop_est attrib fraction. 
+      paf_ll =(rr_alt_ll -1)/rr_alt_ll, #pop_est attrib fraction
+      paf_ul =(rr_alt_ul -1)/rr_alt_ul, #pop_est attrib fraction
+      
       #estimate number of deaths first for summary purposes
-      deaths_baseline_mean = death_rate_20_plus*pop_cat_mean_val_scaled,
-      deaths_baseline_min = death_rate_20_plus*pop_cat_min_val_scaled,
-      deaths_baseline_max = death_rate_20_plus*pop_cat_max_val_scaled,
+      #use n_d_0 instead of deaths, baseline
+      n_d_0_mean = death_rate_20_plus*pop_cat_mean_val_scaled,
+      n_d_0_min = death_rate_20_plus*pop_cat_min_val_scaled,
+      n_d_0_max = death_rate_20_plus*pop_cat_max_val_scaled,
       
-      attrib_d_mean = paf*deaths_baseline_mean, 
-      attrib_d_min = paf*deaths_baseline_min,
-      attrib_d_max = paf*deaths_baseline_max,
+      #Attributable deaths
+      #The "mean" here corresponds to the pop category and the "pt" corresponds to the RR
+      attrib_d_mean_pt = paf_pt*n_d_0_mean, 
+      attrib_d_min_pt = paf_pt*n_d_0_min,
+      attrib_d_max_pt = paf_pt*n_d_0_max,
       
-      deaths_prevented_mean = attrib_d_mean*-1,
-      deaths_prevented_min = attrib_d_min*-1,
-      deaths_prevented_max = attrib_d_max*-1,
+      attrib_d_mean_ll = paf_ll*n_d_0_mean, 
+      attrib_d_min_ll = paf_ll*n_d_0_min,
+      attrib_d_max_ll = paf_ll*n_d_0_max,
       
-      deaths_prevented_per_pop_mean = deaths_prevented_mean/pop_cat_mean_val_scaled,
-      deaths_prevented_per_pop_min = deaths_prevented_min/pop_cat_mean_val_scaled,
-      deaths_prevented_per_pop_max = deaths_prevented_max/pop_cat_mean_val_scaled
+      attrib_d_mean_ul = paf_ul*n_d_0_mean, 
+      attrib_d_min_ul = paf_ul*n_d_0_min,
+      attrib_d_max_ul = paf_ul*n_d_0_max,
+      
+      #Deaths prevented. 3/10/23 - These names are too long. use n_d_prev for deaths prevented
+      n_d_prev_mean_pt = attrib_d_mean_pt*-1,
+      n_d_prev_min_pt = attrib_d_min_pt*-1,
+      n_d_prev_max_pt = attrib_d_max_pt*-1,
+      
+      n_d_prev_mean_ll = attrib_d_mean_ll*-1,
+      n_d_prev_min_ll = attrib_d_min_ll*-1,
+      n_d_prev_max_ll = attrib_d_max_ll*-1,
+      
+      n_d_prev_mean_ul = attrib_d_mean_ul*-1,
+      n_d_prev_min_ul = attrib_d_min_ul*-1,
+      n_d_prev_max_ul = attrib_d_max_ul*-1,
+
+      #Pick out the one that will be the true min/max so I don't have to use all 9 every time
+      #I verified that this is true (think about flip of sign, etc)
+      #over_9 to remember considering bboth sources for min over both sources of variation
+      n_d_prev_min_over_9=n_d_prev_min_ul,
+      n_d_prev_max_over_9=n_d_prev_max_ll,
+      
+      #Deaths prevented per pop
+      n_d_prev_per_pop_mean_pt = n_d_prev_mean_pt/pop_cat_mean_val_scaled,
+      n_d_prev_per_pop_min_pt = n_d_prev_min_pt/pop_cat_min_val_scaled,
+      n_d_prev_per_pop_max_pt = n_d_prev_max_pt/pop_cat_max_val_scaled,
+
+      n_d_prev_per_pop_mean_ll = n_d_prev_mean_ll/pop_cat_mean_val_scaled,
+      n_d_prev_per_pop_min_ll = n_d_prev_min_ll/pop_cat_min_val_scaled,
+      n_d_prev_per_pop_max_ll = n_d_prev_max_ll/pop_cat_max_val_scaled,
+
+      n_d_prev_per_pop_mean_ul = n_d_prev_mean_ul/pop_cat_mean_val_scaled,
+      n_d_prev_per_pop_min_ul = n_d_prev_min_ul/pop_cat_min_val_scaled,
+      n_d_prev_per_pop_max_ul = n_d_prev_max_ul/pop_cat_max_val_scaled
     )
 }
 
@@ -58,31 +185,61 @@ mutate_steps_hia_ndvi_pop = function(df){
 hia_summarise = function(df){
   df %>% 
     summarise(
+      
+      #number of distinct values of pop. density. might not always be useful, but sometimes
+      #interestingly, some GUBs overlap country, which gives more than 9 unique values,
+      #so report both:
+      n_distinct_pop_cat_scaled = n_distinct(pop_cat_mean_val_scaled_fac),
+      n_distinct_pop_cat_not_scaled = n_distinct(pop_cat_mean_val),
+
+      #scaled population - pop of adults 20+
       pop_cat_mean_val_scaled = sum(pop_cat_mean_val_scaled,na.rm=TRUE),
       pop_cat_min_val_scaled = sum(pop_cat_min_val_scaled,na.rm=TRUE),
       pop_cat_max_val_scaled = sum(pop_cat_max_val_scaled,na.rm=TRUE),
       
-      deaths_baseline_mean = sum(deaths_baseline_mean, na.rm=TRUE),
-      deaths_baseline_min = sum(deaths_baseline_min, na.rm=TRUE),
-      deaths_baseline_max = sum(deaths_baseline_max, na.rm=TRUE),
+      #for completeness, keep the unscaled population as well
+      pop_cat_mean_val = sum(pop_cat_mean_val,na.rm=TRUE),
+      pop_cat_min_val = sum(pop_cat_min_val,na.rm=TRUE),
+      pop_cat_max_val = sum(pop_cat_max_val,na.rm=TRUE),
+    
+      #baseline n, deaths
+      n_d_0_mean = sum(n_d_0_mean, na.rm=TRUE),
+      n_d_0_min = sum(n_d_0_min, na.rm=TRUE),
+      n_d_0_max = sum(n_d_0_max, na.rm=TRUE),
       
-      deaths_prevented_mean = sum(deaths_prevented_mean, na.rm=TRUE),
-      deaths_prevented_min = sum(deaths_prevented_min, na.rm=TRUE),
-      deaths_prevented_max = sum(deaths_prevented_max, na.rm=TRUE),
+      #Summarize the min/max over both sources (pop. bounds and RR bounds)
+      n_d_prev_mean_pt = sum(n_d_prev_mean_pt, na.rm=TRUE),
+      n_d_prev_min_over_9 = sum(n_d_prev_min_over_9, na.rm=TRUE),
+      n_d_prev_max_over_9 = sum(n_d_prev_max_over_9, na.rm=TRUE),
       
-      ndvi_2019_mean = mean(ndvi_2019, na.rm=TRUE),
-      ndvi_2019_sd = sd(ndvi_2019, na.rm=TRUE),
-      ndvi_diff_mean = mean(ndvi_diff, na.rm=TRUE)
+      #don't need the 2019
+      ndvi_mean = mean(ndvi_2019, na.rm=TRUE),
+      ndvi_sd = sd(ndvi_2019, na.rm=TRUE),
+      ndvi_med = median(ndvi_2019, na.rm=TRUE),
+      ndvi_25th = quantile(ndvi_2019, probs=c(0.25), na.rm=TRUE),
+      ndvi_75th = quantile(ndvi_2019, probs=c(0.75), na.rm=TRUE),
+      ndvi_diff_mean = mean(ndvi_diff, na.rm=TRUE),
+      ndvi_diff_sd = sd(ndvi_diff, na.rm=TRUE),
+      ndvi_diff_med = median(ndvi_diff, na.rm=TRUE),
+      ndvi_diff_25th = quantile(ndvi_diff, probs=c(0.25), na.rm=TRUE),
+      ndvi_diff_75th = quantile(ndvi_diff, probs=c(0.75), na.rm=TRUE),
+      
+      #adding some other summary values
+      area_km2 = sum(area_km2, na.rm=TRUE),
+      
     ) %>% 
     ungroup() %>% 
     mutate(
-      deaths_prevented_per_1k_pop_mean = (
-        deaths_prevented_mean/pop_cat_mean_val_scaled)* 1000 ,
+      #Deaths prevented per pop - note the order
+      n_d_prev_per_1k_pop_pt = (
+        n_d_prev_mean_pt/pop_cat_mean_val_scaled)* 1000 ,
   
-      deaths_prevented_per_1k_pop_min = (
-        deaths_prevented_min/pop_cat_min_val_scaled)* 1000 ,
+      #Keeping the _min_over_9 to remember that this is over both sources of uncertainty
+      #i.e., 9 iterations - 3 RR values and 3 pop. values
+      n_d_prev_per_1k_pop_min_over_9 = (
+        n_d_prev_min_over_9/pop_cat_min_val_scaled)* 1000 ,#yes, over the min value of population
 
-      deaths_prevented_per_1k_pop_max = (
-        deaths_prevented_max/pop_cat_max_val_scaled)* 1000
+      n_d_prev_per_1k_pop_max_over_9 = (
+        n_d_prev_max_over_9/pop_cat_max_val_scaled)* 1000
     )
 }

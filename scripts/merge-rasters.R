@@ -105,6 +105,7 @@ countries_raster_country_name_en = terra::rast("countries_raster_country_name_en
 ## Check dimensions / resolution
 dim(ls_2019_global)
 res(ls_2019_global)
+ls_2019_global
 
 dim(biomes_14_raster_biome_name)
 res(biomes_14_raster_biome_name)
@@ -128,6 +129,7 @@ dim(ndvi_2019_global_resample)
 res(ndvi_2019_global_resample)
 
 ## Combine them using c()--------
+names(pop_ndvi_gub_biome)
 pop_ndvi_gub_biome = c(
   ls_2019_global,  #landscan pop. categories (not yet wrangled here - global only)
   ndvi_2019_global_resample, #ndvi

@@ -52,21 +52,132 @@ georgia_boundary = state_boundaries %>%
 #This one seems good; it was used here:
 #https://cran.r-project.org/web/packages/rnaturalearth/vignettes/rnaturalearth.html
 #https://r-spatial.org/r/2018/10/25/ggplot2-sf-2.html
+#Also see https://github.com/nvkelso/natural-earth-vector
+
 #install.packages("rnaturalearth")
 library(rnaturalearth)
+#install.packages("rnaturalearthdata")#needed for higher resolution country
+                                      #boundaries
+library(rnaturalearthdata)
+library(rnaturalearthhires)#needed for extra high resolution country boundaries
 library(sf)
 library(mapview)
 library(tidyverse)
-countries = rnaturalearth::ne_countries(returnclass = "sf") 
+#Feb 22, 2023: I didn't download the natural earth data at
+#a fine enough scale.
+#I need to download at a scale of 10 meters, not 110.
+#See
+#https://www.naturalearthdata.com
+#https://github.com/ropensci/rnaturalearth
+#Note the default scale was small, which was excluding
+#lots of coastal areas due to low resolution
+countries = rnaturalearth::ne_countries(
+#  scale = "large",#
+  scale = "large",#corresponds to a 10-meter scale - see
+  #https://rdrr.io/cran/rnaturalearth/man/ne_countries.html
+  returnclass = "sf") %>% 
+  #wrangle the "income_group" category a little
+  mutate(
+    #income_grp is 5 categories: high-income OECD, high-income nonOECD, upper middle
+    #lower middle, and low.
+    #Make one that's just 4 categories collapsing top 2
+    income_grp_4 = case_when(
+        income_grp=="1. High income: OECD" ~ "1-High income",
+        income_grp=="2. High income: nonOECD" ~ "1-High income",
+        income_grp=="3. Upper middle income" ~ "2-Upper middle income",
+        income_grp=="4. Lower middle income" ~ "3-Lower middle income",
+        income_grp=="5. Low income" ~ "4-Low income"
+      )
+    )
 
+
+## Define a look-up for income group-----
+#See comments below  - using data already in the countries file for now Mar 7 2023
+lookup_income_grp = countries %>% 
+  st_set_geometry(NULL) %>% 
+  as_tibble() %>% 
+  distinct(name_en, income_grp, income_grp_4)
+
+lookup_income_grp
 class(countries)
-mapview(countries, zcol = "wb_a2")
+names(countries)
+head(countries)
+#Bingo. The issue is that my country file isn't detailed enough,
+#and it's excluding some coastal cities as a result.
+
+#mapview(countries, zcol = "wb_a2")
 
 
 # countries %>% 
 #   filter(name_en == "United States of America") %>% 
 #   mapview(zcol = "name_en")
 
+#Explore some of the iso codes for joining with other country-level data
+iso_codes = countries %>% 
+  st_set_geometry(NULL) %>% 
+  distinct(iso_a3, iso_a3_eh)
+
+#Note the data do already have an income_grp. I wonder what the source is?
+table(countries$income_grp)
+
+countries %>% 
+  st_set_geometry(NULL) %>% 
+  as_tibble() %>% 
+  dplyr::select(starts_with("name_en"), starts_with("iso_a3")) %>% 
+  arrange(iso_a3_eh) %>% 
+  print(n=300)
+
+countries %>% 
+  st_set_geometry(NULL) %>% 
+  as_tibble() %>% 
+  group_by(income_grp, income_grp_4) %>% 
+  summarise(n=n())
+
+
+table(countries$economy)
+#It looks like the one I should use is iso_a3_eh
+#iso_codes %>% View()
+table(iso_codes$iso_a3_eh)
+
+# World Bank classification------
+# Downloaded 2022 data
+# see readme here
+setwd(here("data-input","world-bank-income-classification"))
+library(readxl)
+countries_wb_class = read_xlsx("wb_class_edits.xlsx") %>% 
+  #call code iso_a3_eh so it matches
+  mutate(iso_a3_eh = code) 
+
+
+table(countries_wb_class$income_group)#L, LM, UM, H
+
+# Make sure that World Bank class will link to the countries loaded above
+countries_w_wb = countries %>% 
+  left_join(countries_wb_class, by = "iso_a3_eh")
+
+table(countries_w_wb$income_grp)
+table(countries_w_wb$income_group)
+
+countries_w_wb %>% 
+  st_set_geometry(NULL) %>% 
+  group_by(income_group) %>% 
+  summarise(n=n())
+#41 missings. Okay, let's just use the stock one provided (even though I don't know source).
+#Not worth time rn to figure out Mar 7 2023
+
+countries_w_wb %>% 
+  st_set_geometry(NULL) %>% 
+  as_tibble() %>% 
+  filter(is.na(income_group)==TRUE) %>% 
+  dplyr::select(starts_with("name_en"),starts_with("iso_a3"), starts_with("inco"))
+  
+countries_w_wb %>% 
+  st_set_geometry(NULL) %>% 
+  group_by(income_grp) %>% 
+  summarise(n=n())
+
+
+#Link with
 # Global cities----
 #maybe just download these?
 #https://simplemaps.com/data/world-cities
@@ -163,3 +274,12 @@ lookup_geoname_id_country_name = cities_geonames %>%
   st_set_geometry(NULL) %>% 
   distinct(geoname_id,country_name)
 
+# Read City of Chicago data for example
+library(sf)
+library(here)
+setwd(here("data-input"))
+#https://data.cityofchicago.org/Facilities-Geographic-Boundaries/Boundaries-City/ewy2-6yfk
+chicago_city_boundaries =st_read("city-of-chicago-boundaries") %>% 
+  st_transform(4326)
+chicago_city_boundaries
+#chicago_city_boundaries %>% mapview()

@@ -23,7 +23,8 @@ load("gub_colorado.RData") #Global urban boundaries
 #See rasterize description in Lovelace 
 #https://geocompr.robinlovelace.net/raster-vector.html#rasterization
 
-#use landscan as target raster throughout, as it's somewhat higher resolution than NDVI
+#use landscan as target raster throughout, 
+#as it's somewhat higher resolution than NDVI
 setwd(here("data-processed"))
 ls_2019_usa_48_wrangle = terra::rast("ls_2019_usa_48_wrangle.tif") 
 
@@ -123,9 +124,9 @@ table(countries$name_en)
 #Use the version that has been merged with the UN data so that we use the
 #column name "country_name_en"
 source(here("scripts", "merge-un-countries-geo.R"))
-countries_joined_with_un_pop_deaths_2019_pared_usa
-names(countries_joined_with_un_pop_deaths_2019_pared_usa)
-countries_usa_48 = countries_joined_with_un_pop_deaths_2019_pared_usa %>% 
+countries_joined_with_un_pop_deaths_pared_usa
+names(countries_joined_with_un_pop_deaths_pared_usa)
+countries_usa_48 = countries_joined_with_un_pop_deaths_pared_usa %>% 
   filter(country_name_en == "United States of America") %>% 
   st_intersection(usa_boundaries_cont_48_union)
 
@@ -142,14 +143,16 @@ terra::writeRaster(
 )
 
 ## Global----
-countries_joined_with_un_pop_deaths_2019_pared #created above when script is sourced
+countries_joined_with_un_pop_deaths_pared #created above when script is sourced
+countries_joined_with_un_pop_deaths_pared %>% 
+  mapview()
 setwd(here("data-input", "ls-global-2019-alt-dl"))
-ls_2019_global = terra::rast("landscan-global-2019-colorized.tif")
+ls_global = terra::rast("landscan-global-2019-colorized.tif")
 
-table(countries_joined_with_un_pop_deaths_2019_pared$country_name_en)
+table(countries_joined_with_un_pop_deaths_pared$country_name_en)
 countries_raster_country_name_en = rasterize(
-  countries_joined_with_un_pop_deaths_2019_pared, #vector to be rasterized
-  ls_2019_global, #target raster
+  countries_joined_with_un_pop_deaths_pared, #vector to be rasterized
+  ls_global, #target raster
   field = "country_name_en")
 setwd(here("data-processed"))
 terra::writeRaster(
@@ -157,5 +160,10 @@ terra::writeRaster(
   overwrite=TRUE,
   filename = "countries_raster_country_name_en.tif" 
 )
+names(countries_raster_country_name_en)
+plot(countries_raster_country_name_en)
+countries_raster_country_name_en %>% 
+  raster::raster() %>% 
+  mapview(zcol = "country_name_en")
 
 

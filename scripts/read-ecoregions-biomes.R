@@ -59,6 +59,9 @@ ecoregions %>%
 # Dissolve into just the fourteen biomes - smaller data------
 #Note this takes some time, so probably good to save.
 sf::sf_use_s2(FALSE) 
+# ecoregions_union = ecoregions %>% 
+#   st_union(by_feature = TRUE)
+# ecoregions_union %>% mapview()
 biomes_14 = ecoregions %>% 
   group_by(BIOME_NAME) %>% 
   summarise(n_ecoregions=n()) %>% 
@@ -67,9 +70,26 @@ biomes_14 = ecoregions %>%
 object.size(biomes_14)
 setwd(here("data-processed"))
 save(biomes_14, file = "biomes_14.RData")
-
+load("biomes_14.RData")
+#save a simplified version for mapping
+biomes_14_simplified =biomes_14 %>% 
+  st_simplify(dTolerance = 10000)
+save(biomes_14_simplified, file = "biomes_14_simplified.RData")
+library(viridis)
+viridis_pal()
 biomes_14 %>% 
-  mapview(zcol = "BIOME_NAME")
+#biomes_14_simplified %>% 
+  mapview(
+    zcol = "BIOME_NAME",
+    col.regions = viridis::turbo(n_distinct(biomes_14_simplified$BIOME_NAME)))
+
+
+## static map of biomes------
+#I moved the static map here
+#~summary-global.R
+#Note the streaky lines were simply a result
+#of the "simplified" data. It works fine when done on original
+
 
 # Restrict to Colorado----
 sf::sf_use_s2(FALSE)

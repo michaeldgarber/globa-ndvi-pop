@@ -11,6 +11,8 @@
 library(here)
 library(tidyverse)
 library(readxl)
+
+# Load deaths data by country------
 setwd(here("data-input", "united-nations-mortality-data"))
 un_deaths_2019 = read_excel("un-deaths-age-groups-both-sexes-modified.xlsx") %>% 
   mutate(deaths_absolute_20_plus_both_sexes = deaths_thousands_20_plus_both_sexes_num*1000) %>% 
@@ -26,6 +28,7 @@ un_deaths_2019 %>%
   n_distinct("Index")
 
 
+# Load population data by country-----
 #Load population data as well so we can get a rate
 setwd(here("data-input", "united-nations-mortality-data"))
 un_pop_2019 = read_excel("un-pop-age-groups-both-sexes-modified.xlsx") %>% 
@@ -46,19 +49,25 @@ nrow(un_pop_2019)
 names(un_pop_2019)
 un_pop_2019
 table(un_pop_2019$region_subregion_country_or_area)
+
+#explore ratio of 20 plus
+summary(un_pop_2019$pop_ratio_20_plus)
+
 setwd(here("data-processed"))
 save(un_pop_2019, file = "un_pop_2019.RData")
 
 un_pop_2019_for_join = un_pop_2019 %>% 
   dplyr::select(Index, starts_with("pop")) #join by index, actually
 
+# Link them and data wrangling------
 un_pop_2019_for_join
 nrow(un_deaths_2019) #same number of rows, so a row-number-based ID should work.
 names(un_deaths_2019)
 un_pop_deaths_2019 = un_deaths_2019 %>% 
   left_join(un_pop_2019_for_join, by = "Index") %>% 
   mutate(
-    death_rate_20_plus = deaths_absolute_20_plus_both_sexes/pop_20_plus_both_sexes_absolute,
+    death_rate_20_plus = deaths_absolute_20_plus_both_sexes/
+      pop_20_plus_both_sexes_absolute,
     death_rate_20_plus_per_1000 = death_rate_20_plus*1000
   ) %>% 
   #There is a column called "Type" in UN pop & death data to indicate whether the 

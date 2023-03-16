@@ -21,6 +21,7 @@ gub = st_read(dsn ="GUB_Global_2018") %>%
   )
 setwd(here("data-processed"))
 save(gub, file = "gub.RData")
+#load("gub.RData")
 nrow(gub)
 names(gub)
 
@@ -36,10 +37,14 @@ gub %>%
 ## Lookups and modified versions-------
 #a version without geometry for presentations
 gub_nogeo = gub %>% 
-  st_set_geometry(NULL)
+  st_set_geometry(NULL) %>% 
+  as_tibble()
 setwd(here("data-processed"))
 save(gub_nogeo, file = "gub_nogeo.RData")
-
+#load("gub_nogeo.RData")
+nrow(gub_nogeo)
+summary(gub_nogeo$area_km2)
+gub_nogeo
 ### geometry lookup------
 # lookup for the geometry
 lookup_gub_orig_fid_geo = gub %>% 
@@ -58,7 +63,7 @@ save(lookup_gub_area_km2, file = "lookup_gub_area_km2.RData")
 
 ### Link with city-name data--------  
 #Use the geonames data instead
-source(here("scripts","generate-boundaries-states-countries.R"))
+source(here("scripts","read-boundaries-states-countries.R"))
 names(cities_pt)
 names(cities_geonames)#using this now Feb 21 2023
 cities_pt
@@ -106,10 +111,34 @@ gub_orig_fid_many_names %>%
 
 
 # What ORIG_FID is Tokyo?
+lookup_gub_city_name %>% 
+  filter(city_name == "Tokyo")#2238
 
+#What city does 2238 correspond to? It has a very large area
+lookup_gub_city_name %>% 
+  filter(ORIG_FID == "2238") #Shenzhen
+
+#For the example, I should do New York.
+#Which city is New York?
+#begin with pixels of new york, then summarize to new york, etc
+#or maybe Chicago since I know it better, and it might be easier to see
+lookup_gub_city_name %>% 
+  filter(city_name == "New York City")
+
+lookup_gub_city_name %>% 
+  filter(city_name == "Chicago")
+
+
+gub %>% 
+  filter(ORIG_FID=="60310") %>% 
+  mapview()
+
+gub %>% 
+  filter(ORIG_FID=="55685") %>% 
+  mapview()
 
 # Restrict to Colorado-----
-source(here("scripts", "generate-boundaries-states-countries.R")) 
+source(here("scripts", "read-boundaries-states-countries.R")) 
 
 gub_colorado = gub %>% 
   st_intersection(colorado_boundary) 

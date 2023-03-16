@@ -207,7 +207,7 @@ gub_usa_48_hia_simplified %>%
 
 
 ## Results (Global)
-
+As of February 20th, we exclude global urban areas with a population below 1,000 (minimum Landscan bound) and below 5 square kilometers.
 ### How many cities included?
 ```{r, eval=TRUE, echo=FALSE, warning=FALSE, message=FALSE}
 setwd(here("data-processed"))
@@ -223,8 +223,6 @@ hia_summary_gub %>%
 Based on summarized Landscan 2019 data (mean of categories)
 
 ```{r, eval=TRUE, echo=FALSE, warning=FALSE, message=FALSE}
-setwd(here("data-processed"))
-load("gub_nogeo.RData")
 hia_summary_gub %>% 
   dplyr::select(pop_cat_mean_val_scaled) %>% 
   summary(pop_cat_mean_val_scaled)
