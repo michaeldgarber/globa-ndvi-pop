@@ -3,7 +3,7 @@
 setwd(here("data-processed"))
 source(here("scripts", "rojas_green_space_drf.R")) #load dose-response info. doesn't depend on anything
 source(here("scripts", "read-boundaries-states-countries.R")) 
-source(here("scripts", "read-united-nations-deaths.R")) 
+source(here("scripts", "read-united-nations-gbd-data.R")) #formerly called read-united-nations-deaths.R
 source(here("scripts", "merge-un-countries-geo.R"))
 source(here("scripts", "read-gub.R"))
 source(here("scripts", "read-ecoregions-biomes.R"))

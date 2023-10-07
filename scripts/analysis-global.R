@@ -77,6 +77,8 @@ BIOME_NAME = pop_ndvi_gub_biome$BIOME_NAME %>%
 
 #saving as I go, as this sometimes doesn't run.
 #Feb 23 2023 - I had to restart R and clear objects for this to work.
+#Oct 6, 2023: want to change the name of _en to _ne for natural earth
+#to keep track of where the country name comes from.
 country_name_en = pop_ndvi_gub_biome$country_name_en %>% 
   tidyterra::as_tibble()
 setwd(here("data-processed"))
@@ -155,9 +157,10 @@ object.size(pop_ndvi_gub_biome_tib_gub_not_miss)
 setwd(here("data-processed"))
 save(pop_ndvi_gub_biome_tib_gub_not_miss, 
      file = "pop_ndvi_gub_biome_tib_gub_not_miss.RData")
-#load("pop_ndvi_gub_biome_tib_gub_not_miss.RData")
+load("pop_ndvi_gub_biome_tib_gub_not_miss.RData")
 object.size(pop_ndvi_gub_biome_tib_gub_not_miss) 
 nrow(pop_ndvi_gub_biome_tib_gub_not_miss)
+names(pop_ndvi_gub_biome_tib_gub_not_miss)
 
 ### Checks of intermediate dataset-----
 #Of those with non-missing GUB, how many with NDVI below 0?
@@ -174,14 +177,15 @@ pop_ndvi_gub_biome_tib_gub_not_miss %>%
 
 
 
-## Create a look-up for city area and population----
+# Lookups-------
+## lookup for city area and population----
 #Can't do this in the steps below because that's at the pixel level,
 #whereas this needs to be at the city level
 names(pop_ndvi_gub_biome_tib_gub_not_miss)
 #note this isn't the scaled value.
 load("lookup_gub_city_id.RData")
 load("lookup_gub_area_km2.RData")
-lookup_city_pop_area = pop_ndvi_gub_biome_tib_gub_not_miss %>% 
+lookup_gub_pop_area = pop_ndvi_gub_biome_tib_gub_not_miss %>% 
   group_by(ORIG_FID) %>% 
   summarise(
     #have to name them something different so they can be joined
@@ -193,73 +197,189 @@ lookup_city_pop_area = pop_ndvi_gub_biome_tib_gub_not_miss %>%
   ungroup() %>% 
   left_join(lookup_gub_area_km2, by ="ORIG_FID") %>% #area of GUB
   left_join(lookup_gub_city_id, by = "ORIG_FID") %>% #link city ID
-  left_join(lookup_city_id_city_population, by = "geoname_id") #link pop of city id
+  #Sep 29, 2023 note:
+  #note this city_population comes from 
+  #https://public.opendatasoft.com/explore/dataset/geonames-all-cities-with-a-population-1000/
+  #which does not necessarily equal the same land area / definition as the urban areas
+  #otherwise used.
+  #This lookup is defined here
+  #global-ndvi-pop/scripts/read-boundaries-states-countries.R
+  left_join(lookup_city_id_city_population_geonames, by = "geoname_id") %>%  #link pop of city id
+  #Per Ana's book (Chapter 2), it can be important to classify cities by size
+  #Some popular categories (figure 2.4, urban public health)
+  #: fewer than 300k, 300k to 500k, 500k to 1 million, 1 to 5 million
+  #The atlas of urban expansion also classifies cities (table 2.1) as
+  #100k to 427k
+  #427k to 1.57 m
+  #5.715 m
+  #5.714 m plus
+  #Decisions for how to classify population - either based on the city_pop
+  #from the other city-specific dataset or via a summed total of landscan
+  #within the GUB. I think the more interpretable result will be via
+  #the city-specific numbers, even if it doesn't correspond to the total GUB
+  mutate(
+    #The first classification system is from Figure 2.4, Urban Public Health
+    #and corresponds to specific city boundaries
+    pop_cat_breaks_city_geonames=cut(city_population_geonames, 
+                     breaks=c(0,300000,500000,1000000,5000000,10000000, 25000000)),
+    #The second corresponds to the Atlas of Urban Expansion and we therefore use
+    #the landscan population values. let's go with mean.
+    #aue for atlas of urban expansion; ls for landscan
+    pop_cat_breaks_gub_aue_ls=cut(pop_cat_mean_val_gub,
+                           breaks=c(0,100000,427000,1570000,5715000,
+                                    300000000)#last category is 300,000,000 - max mean value
+                           )
+    )
+  
+lookup_gub_pop_area
+setwd(here("data-processed"))
+save(lookup_gub_pop_area, file = "lookup_gub_pop_area.RData")
+load("lookup_gub_city_name.RData")
+
+## lookup for country in case country is missing from city data-------
+names(pop_ndvi_gub_biome_tib_gub_not_miss)
+#note some of these overlap multiple countries, so do the below
+lookup_orig_fid_country_name_en=pop_ndvi_gub_biome_tib_gub_not_miss %>% 
+  group_by(ORIG_FID,country_name_en) %>% 
+  summarise(pop_cat_min_val=sum(pop_cat_min_val,na.rm=T)) %>% 
+  group_by(ORIG_FID) %>% 
+  arrange(desc(pop_cat_min_val)) %>% 
+  slice(1) %>% #grab the top
+  ungroup() %>% 
+  arrange(ORIG_FID)
+
+lookup_orig_fid_country_name_en
+
 
 setwd(here("data-processed"))
-save(lookup_city_pop_area, file = "lookup_city_pop_area.RData")
-load("lookup_gub_city_name.RData")
-lookup_city_pop_area %>% 
+save(lookup_orig_fid_country_name_en,file="lookup_orig_fid_country_name_en.RData")
+
+#Examine city population
+lookup_gub_pop_area %>% 
   left_join(lookup_gub_city_name, by = "ORIG_FID") %>% 
   arrange(desc(pop_cat_mean_val_gub))
 
-summary(lookup_city_pop_area$pop_cat_min_val_gub)
-summary(lookup_city_pop_area$pop_cat_mean_val_gub)
-summary(lookup_city_pop_area$pop_cat_max_val_gub)
+lookup_gub_pop_area %>% 
+  left_join(lookup_gub_city_name, by = "ORIG_FID") %>% 
+  arrange(desc(city_population))
 
-lookup_city_pop_area %>% 
-  filter(pop_cat_mean_val_gub>10000000) %>% 
+summary(lookup_gub_pop_area$pop_cat_min_val_gub)
+summary(lookup_gub_pop_area$pop_cat_mean_val_gub)
+summary(lookup_gub_pop_area$pop_cat_max_val_gub)
+
+#How does city_pop generally plot against landsat values
+lookup_gub_pop_area %>% 
+  filter(pop_cat_mean_val_gub>100000) %>% 
+  ggplot(aes(x=city_population,y= pop_cat_min_val_gub))+
+  geom_point()
+
+lookup_gub_pop_area %>% 
+  filter(pop_cat_mean_val_gub>100000) %>% 
   ggplot(aes(pop_cat_mean_val_gub))+
   geom_histogram()
 
-summary(lookup_city_pop_area$pop_cat_mean_val_gub)
-summary(lookup_city_pop_area$pop_cat_min_val_gub)
-summary(lookup_city_pop_area$pop_cat_max_val_gub)
+summary(lookup_gub_pop_area$pop_cat_mean_val_gub)
+summary(lookup_gub_pop_area$pop_cat_min_val_gub)
+summary(lookup_gub_pop_area$pop_cat_max_val_gub)
+summary(lookup_gub_pop_area$city_population)
 
-## Explore cities with missing biomes------
+#the issue with strictly using city_population is that there are some GUBs that
+#don't have a corresponding city
+lookup_gub_pop_area %>% 
+  filter(pop_cat_min_val_gub>1000) %>% #using minimum to be conservative (err on including)
+  filter(area_km2 >5) %>% 
+  group_by(pop_cat_breaks_city) %>% 
+  summarise(n=n())
+
+#This looks pretty good. We can go with this.
+
+lookup_gub_pop_area %>% 
+  filter(pop_cat_min_val_gub>1000) %>% #using minimum to be conservative (err on including)
+  filter(area_km2 >5) %>% 
+  group_by(pop_cat_breaks_gub_aue_ls) %>% 
+  summarise(n=n())
+
+#a lookup just for the population categories I just created
+lookup_city_gub_pop_cat_breaks=lookup_gub_pop_area %>% 
+  dplyr::select(ORIG_FID,starts_with("pop_cat_breaks"))
+
+setwd(here("data-processed"))
+save(lookup_city_gub_pop_cat_breaks,file="lookup_city_gub_pop_cat_breaks.RData")
+  
+  
+
+## lookup for city-biome-----------
+
+### Explore cities with missing biomes------
 #Feb 21, 2023:
 #Generate a city-biome look-up table. Note there may be one to many in some
 #cases, so count the number of pixels. Like this:
 #This is in response to the concern of pixels with missing biome (below)
-lookup_city_biome = pop_ndvi_gub_biome_tib_gub_not_miss %>% 
+#changing this from lookup_city_biome to lookup_gub_biome to differentiate the two
+lookup_gub_biome = pop_ndvi_gub_biome_tib_gub_not_miss %>% 
   filter(is.na(pop_cat_1_8)==FALSE) %>% #NAs throwing error 
   filter(ndvi_2019>0) %>% #exclude NDVI below 0 (water)
   group_by(ORIG_FID, BIOME_NAME) %>% 
   summarise(n_pixel_city_biome = n()) %>% 
   ungroup()
 
-lookup_city_biome %>% 
+lookup_gub_biome %>% 
   print(n=100)
 
 #cool. now get a 1-1 lookup corresponding to the most common biome within city
-lookup_city_biome_top = lookup_city_biome %>% 
+lookup_gub_biome_top  = lookup_gub_biome %>% 
   arrange(ORIG_FID, desc(n_pixel_city_biome)) %>% #sort descending by this
   group_by(ORIG_FID) %>% 
   slice(1) %>%   #and take top row per group
   ungroup() %>% 
   rename(biome_name_top = BIOME_NAME)
 
-lookup_city_biome_top  %>% 
+lookup_gub_biome_top   %>% 
   print(n=100)
 
 #save in case I use in other code
 setwd(here("data-processed"))
-save(lookup_city_biome_top, file = "lookup_city_biome_top.RData")
+save(lookup_gub_biome_top , file = "lookup_gub_biome_top .RData")
 #There are apparently some cities that don't have a biome under this method.
-lookup_city_biome_top %>% 
+lookup_gub_biome_top  %>% 
   filter(is.na(biome_name_top)==TRUE) %>% 
   nrow()
 #325 of 64694
 325/64694
-nrow(lookup_city_biome_top)
+nrow(lookup_gub_biome_top )
 load("lookup_gub_orig_fid_geo.RData")
-lookup_city_biome_top %>% 
+lookup_gub_biome_top  %>% 
   filter(is.na(biome_name_top)==TRUE) %>% 
   left_join(lookup_gub_orig_fid_geo, by = "ORIG_FID") %>% 
   st_as_sf() %>% 
   mapview() #looks like mostly islands and coastal areas.
-  
 
-## Main analysis steps----
+##lookup for Population category------
+#I want to add a comma to the upper bound, especially, so
+table(pop_ndvi_gub_biome_tib_gub_not_miss$pop_cat_max_val)
+table(pop_ndvi_gub_biome_tib_gub_not_miss$pop_cat_max_fac)
+lookup_pop_cat_max_fac=pop_ndvi_gub_biome_tib_gub_not_miss %>% 
+  distinct(pop_cat_max_val,pop_cat_max_fac) %>% 
+  mutate(
+    pop_cat_max_fac_w_comma_int=as.factor(prettyNum(pop_cat_max_val, big.mark=",", trim=T)),
+    #this step orders it by values of the double version of the pop_cat_max_val. nice
+    #https://forcats.tidyverse.org/reference/fct_reorder.html
+    pop_cat_max_fac_w_comma=fct_reorder(pop_cat_max_fac_w_comma_int,pop_cat_max_val)
+  ) %>% 
+  #Now I can drop pop_cat_max_val and the intermediate factor 
+  dplyr::select(-pop_cat_max_val,-pop_cat_max_fac_w_comma_int) %>% 
+  arrange(pop_cat_max_fac_w_comma)
+    
+lookup_pop_cat_max_fac
+#Going to save this for use elsewhere
+setwd(here("data-processed"))
+save(lookup_pop_cat_max_fac, 
+     file = "lookup_pop_cat_max_fac.RData")
+
+lookup_pop_cat_max_fac
+
+# Main analysis steps----
+names(countries_joined_with_un_pop_deaths_pared_nogeo)
 pop_ndvi_gub_biome_tib = pop_ndvi_gub_biome_tib_gub_not_miss %>% 
   bind_cols(drf_deaths) %>%   #add DRF to every row (regardless of country)
   #add number of deaths to every row (would be a left_join for more countries)
@@ -270,7 +390,7 @@ pop_ndvi_gub_biome_tib = pop_ndvi_gub_biome_tib_gub_not_miss %>%
   filter(ndvi_2019>0) %>% #exclude NDVI below 0 (water)
   #link in the city-biome lookup so that I can impute biomes
   #for pixels with missing biomes
-  left_join(lookup_city_biome_top, by = "ORIG_FID") %>% 
+  left_join(lookup_gub_biome_top , by = "ORIG_FID") %>% 
   #Feb 21 2023: now, if a given pixel is missing a biome, set it to the value
   #of the most common biome for that city
   mutate(
@@ -281,7 +401,7 @@ pop_ndvi_gub_biome_tib = pop_ndvi_gub_biome_tib_gub_not_miss %>%
   ) %>% 
   #link area and population of the global urban boundary.
   #only include gubs above 5 square km and above 1,000 residents (min per landscan)
-  left_join(lookup_city_pop_area, by ="ORIG_FID") %>% 
+  left_join(lookup_gub_pop_area, by ="ORIG_FID") %>% 
   filter(pop_cat_min_val_gub>1000) %>% #using minimum to be conservative (err on including)
   filter(area_km2 >5) %>% 
   #add a country group here first so I can summarize by country. this order is good.
@@ -304,7 +424,7 @@ table(pop_ndvi_gub_biome_tib$pop_cat_max_fac)
 
 
 #How many cities have more than one biome?
-n_biome_within_city = pop_ndvi_gub_biome_tib %>% 
+n_biome_within_gub = pop_ndvi_gub_biome_tib %>% 
   filter(is.na(pop_cat_1_8)==FALSE) %>% #NAs throwing error 
   filter(ndvi_2019>0) %>% #exclude NDVI below 0 (water)
   group_by(ORIG_FID, BIOME_NAME) %>% 
@@ -313,21 +433,21 @@ n_biome_within_city = pop_ndvi_gub_biome_tib %>%
   summarise(n_biome = n_distinct(BIOME_NAME)) %>% 
   ungroup()
 
-n_biome_within_city
-summary(n_biome_within_city$n_biome)
+n_biome_within_gub
+summary(n_biome_within_gub$n_biome)
 
-n_gub_w_2_or_more_biomes = n_biome_within_city %>% 
+n_gub_w_2_or_more_biomes = n_biome_within_gub %>% 
   filter(n_biome>1) %>% 
   nrow()
 
-n_gub = n_biome_within_city %>% nrow()
+n_gub = n_biome_within_gub %>% nrow()
 
 n_gub_w_2_or_more_biomes/n_gub
 1-(n_gub_w_2_or_more_biomes/n_gub)
 
 #Describe variation of pop. density within GUB?
 names(pop_ndvi_gub_biome_tib_gub_not_miss)
-n_pop_cat_city = pop_ndvi_gub_biome_tib %>% 
+n_pop_cat_gub = pop_ndvi_gub_biome_tib %>% 
   filter(is.na(pop_cat_1_8)==FALSE) %>% #NAs throwing error 
   filter(ndvi_2019>0) %>% #exclude NDVI below 0 (water)
   group_by(ORIG_FID, pop_cat_1_8) %>% 
@@ -335,8 +455,8 @@ n_pop_cat_city = pop_ndvi_gub_biome_tib %>%
   group_by(ORIG_FID) %>% 
   summarise(n_pop_cat = n_distinct(pop_cat_1_8))
 
-n_pop_cat_city
-summary(n_pop_cat_city$n_pop_cat)
+n_pop_cat_gub
+summary(n_pop_cat_gub$n_pop_cat)
 
 # check on pt vs ll vs ul variables
 names(pop_ndvi_gub_biome_tib)
@@ -363,7 +483,7 @@ names(pop_ndvi_gub_biome_tib)
       #That means n_d_prev_max_ll should correspond to the overall max. Yes.
 
 #check the factor version of the scaled population
-table(pop_ndvi_gub_biome_tib$)
+
 
 #End of code here
 #For the summaries, now look here: ~summary-global.R

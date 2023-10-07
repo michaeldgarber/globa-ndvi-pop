@@ -87,16 +87,34 @@ countries = rnaturalearth::ne_countries(
         income_grp=="3. Upper middle income" ~ "2-Upper middle income",
         income_grp=="4. Lower middle income" ~ "3-Lower middle income",
         income_grp=="5. Low income" ~ "4-Low income"
-      )
+      ),
+    #Adding this Oct 6, 2023 for clearer presentation of the second category
+    income_grp_5_rename=case_when(
+      income_grp=="1. High income: OECD" ~ "1. High income: OECD",
+      income_grp=="2. High income: nonOECD" ~ "2. High income: non-OECD",
+      income_grp=="3. Upper middle income" ~ "3. Upper middle income",
+      income_grp=="4. Lower middle income" ~ "4. Lower middle income",
+      income_grp=="5. Low income" ~ "5. Low income"
     )
+  )
 
+names(countries)
 
 ## Define a look-up for income group-----
 #See comments below  - using data already in the countries file for now Mar 7 2023
 lookup_income_grp = countries %>% 
   st_set_geometry(NULL) %>% 
   as_tibble() %>% 
-  distinct(name_en, income_grp, income_grp_4)
+  distinct(name_en, income_grp, income_grp_4,income_grp_5_rename) 
+
+setwd(here("data-processed"))
+save(lookup_income_grp,file="lookup_income_grp.RData")
+
+lookup_income_grp
+
+lookup_income_grp_5_rename=lookup_income_grp %>% 
+  distinct(income_grp, income_grp_4,income_grp_5_rename)
+save(lookup_income_grp_5_rename,file="lookup_income_grp_5_rename.RData")
 
 lookup_income_grp
 class(countries)
@@ -182,33 +200,58 @@ countries_w_wb %>%
 #maybe just download these?
 #https://simplemaps.com/data/world-cities
 #from https://simplemaps.com/data/world-cities
+#Note there is a "pro" version for $200
 
 
-## Source 1----
-setwd(here("data-input","simplemaps_worldcities_basicv1"))
-cities_pt = readr::read_delim("worldcities.csv") %>% 
+## Simplemaps (source 1)----
+setwd(here("data-input","simplemaps-worldcities-basicv1"))
+cities_simplemaps_basic = readr::read_delim("worldcities.csv") %>% 
   st_as_sf(coords = c("lng", "lat"), crs = 4326) %>% 
   rename(
-    city_id=id,
-    city_name = city,
-    city_population = population)
+    city_id_simplemaps=id,
+    city_name_simplemaps = city,
+    city_population_simplemaps = population,
+    country_name_simplemaps=country
+  )
 
+cities_simplemaps_basic
 setwd(here("data-processed"))
-save(cities_pt, file = "cities_pt.RData")
-nrow(cities_pt)
-names(cities_pt)
-cities_pt %>% 
+save(cities_simplemaps_basic, file = "cities_simplemaps_basic.RData")
+#42,905 - Oct 6, 2023: I wonder if this would pick up those missing from source 2
+nrow(cities_simplemaps)
+names(cities_simplemaps)
+cities_simplemaps %>% 
   st_set_geometry(NULL)
 
 #for a given city id (use id, not name), what is country?
-lookup_city_id_country = cities_pt %>% 
+lookup_city_id_simple_maps_country = cities_simplemaps %>% 
   st_set_geometry(NULL) %>% 
-  distinct(country,city_id)
+  distinct(country_name_simplemaps,city_id_simplemaps)
+
+#previously called lookup_city_id_country
+setwd(here("data-processed"))
+save(lookup_city_id_simple_maps_country, file ="lookup_city_id_simple_maps_country.RData")
+
+
+## Simplemaps Pro------
+#Oct 6, 2023 - note this cost $200
+setwd(here("data-input","simplemaps-worldcities-pro"))
+cities_simplemaps_pro = readr::read_delim("worldcities.csv") %>% 
+  st_as_sf(coords = c("lng", "lat"), crs = 4326) %>% 
+  rename(
+    city_id_simplemaps=id,
+    city_name_simplemaps = city,
+    city_population_simplemaps = population,
+    country_name_simplemaps=country
+  )
 
 setwd(here("data-processed"))
-save(lookup_city_id_country, file ="lookup_city_id_country.RData")
+save(cities_simplemaps_pro, file = "cities_simplemaps_pro.RData")
 
-## Source 2------
+names(cities_simplemaps_pro)
+cities_simplemaps_pro
+nrow(cities_simplemaps_pro)
+## geonames (source 2)------
 #alternate might be
 #https://public.opendatasoft.com/explore/dataset/geonames-all-cities-with-a-population-1000/
 #I'm going to use the above for a few reason: looks to have been modified recently, 
@@ -228,20 +271,22 @@ cities_geonames = readr::read_delim(
     lng = str_split_i(Coordinates, pattern=",", 2),
     lat = str_split_i(Coordinates, pattern=",", 1),
     #use ASCII name as the main name, as it avoids accents
-    city_name =`ASCII Name`#have to use back ticks because there are spaces
+    city_name_geonames =`ASCII Name`#have to use back ticks because there are spaces
   ) %>% 
   rename(
+    #To keep track of the data source, I'm adding "geonames" as a suffix,
+    #since I'm dealing with so many data sources
     geoname_id = `Geoname ID`,
-    country_name = `Country name EN`,
-    city_population = `Population`,
-    city_elevation = `Elevation`,
-    city_date_modified= `Modification date`,
-    city_name_accents = `Name`#with possible accents per local name
+    country_name_geonames = `Country name EN`,
+    city_population_geonames = `Population`,
+    city_elevation_geonames = `Elevation`,
+    city_date_modified_geonames= `Modification date`,
+    city_name_accents_geonames = `Name`#with possible accents per local name
   ) %>% 
   st_as_sf(coords = c("lng", "lat"), crs = 4326) %>% 
   #Now only pick some of those to use
   dplyr::select(geoname_id, starts_with("city"), contains("_name")) %>% 
-  arrange(desc(city_population))
+  arrange(desc(city_population_geonames))
 
 setwd(here("data-processed"))
 save(cities_geonames, file = "cities_geonames.RData")
@@ -250,29 +295,29 @@ nrow(cities_geonames)
 names(cities_geonames)
 # cities_geonames %>% View()
 cities_geonames %>%
-  filter(city_population>1000000) %>%
+  filter(city_population_geonames>1000000) %>%
   mapview()
-names(cities_geonames)
+
 
 
 # lookup for city population
-lookup_city_id_city_population=cities_geonames %>% 
+lookup_city_id_city_population_geonames=cities_geonames %>% 
   st_set_geometry(NULL) %>% 
   as_tibble() %>% 
-  dplyr::select(geoname_id, city_population)
+  dplyr::select(geoname_id, starts_with("city_pop"))
 
-nrow(cities_geonames)
-nrow(lookup_city_id_city_population)
 
 #lookup for city name
 lookup_geoname_id_city_name = cities_geonames %>% 
   st_set_geometry(NULL) %>% 
-  distinct(geoname_id,city_name)
+  distinct(geoname_id,city_name_geonames)
 
 #for a given city id (use id, not name), what is country?
 lookup_geoname_id_country_name = cities_geonames %>% 
   st_set_geometry(NULL) %>% 
-  distinct(geoname_id,country_name)
+  distinct(geoname_id,country_name_geonames)
+
+
 
 # Read City of Chicago data for example
 library(sf)

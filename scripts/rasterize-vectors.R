@@ -143,6 +143,7 @@ terra::writeRaster(
 )
 
 ## Global----
+names(countries_joined_with_un_pop_deaths_pared)
 countries_joined_with_un_pop_deaths_pared #created above when script is sourced
 countries_joined_with_un_pop_deaths_pared %>% 
   mapview()
@@ -153,7 +154,7 @@ table(countries_joined_with_un_pop_deaths_pared$country_name_en)
 countries_raster_country_name_en = rasterize(
   countries_joined_with_un_pop_deaths_pared, #vector to be rasterized
   ls_global, #target raster
-  field = "country_name_en")
+  field = "country_name_en")#changed to _ne Oct 6 2023
 setwd(here("data-processed"))
 terra::writeRaster(
   countries_raster_country_name_en,

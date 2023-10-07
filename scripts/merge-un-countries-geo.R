@@ -4,7 +4,7 @@
 
 # Source scripts----
 library(here)
-source(here("scripts", "read-united-nations-deaths.R")) 
+source(here("scripts", "read-united-nations-gbd-data.R")) #formerly called read-united-nations-deaths.R
 source(here("scripts", "read-boundaries-states-countries.R"))
 
 # Initial checks----
@@ -18,7 +18,7 @@ nrow(countries)
 
 #How many rows in the UN data?
 nrow(un_pop_deaths_2019)
-table(un_pop_deaths_2019$Type)
+table(un_pop_deaths_2019$type)
 table(un_pop_deaths_2019$region_subregion_country_or_area)
 un_pop_deaths_2019
 
@@ -30,6 +30,7 @@ countries_joined_with_un_pop_deaths = countries %>%
   #get rid of population variables here to avoid confusion
   #with the UN estimates
   dplyr::select(-contains("pop_")) %>% 
+  dplyr::select(-contains("type")) %>% 
   #Feb 9 2023 12:55 pm - fixed the names so they should all join now
   #make sure white space is trimmed off.
   mutate(name_en=trimws(name_en)) %>% 
@@ -40,7 +41,11 @@ countries_joined_with_un_pop_deaths = countries %>%
       is.na(deaths_thousands_20_plus_both_sexes_num) ~ 0,
       TRUE ~1
     ),
-    country_name_en = name_en #I like this name better.
+    #October 6, 2023: updating country name to keep track of the data source
+    #this ultimately comes from rnatural earth, so let's use ne as a suffix
+    #Actually major backtrack. It's too hard to change now. Keep it _en
+    #and just remember that it's from natural earth
+    country_name_en = name_en 
   ) 
 
 setwd(here("data-processed"))
@@ -98,4 +103,3 @@ countries_joined_with_un_pop_deaths_pared_usa = countries_joined_with_un_pop_dea
 
 countries_joined_with_un_pop_deaths_pared_usa
 names(countries_joined_with_un_pop_deaths_pared_usa)
-View(countries_joined_with_un_pop_deaths_pared_usa)
