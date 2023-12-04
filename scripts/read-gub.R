@@ -16,13 +16,14 @@ setwd(here("data-input", "global-urban-boundaries"))
 getwd()
 gub = st_read(dsn ="GUB_Global_2018") %>%
   st_transform(4326) %>% 
+  #Oct 9, 2023: to avoid ambiguity with other area calculations, I'm adding a suffix
   mutate(  #measure area this way
-    area_m2 = as.numeric(st_area(geometry)),
-    area_km2 = area_m2*1e-6 
+    area_m2_gub = as.numeric(st_area(geometry)),
+    area_km2_gub = area_m2_gub*1e-6 
   )
 setwd(here("data-processed"))
 save(gub, file = "gub.RData")
-#load("gub.RData")
+load("gub.RData")
 nrow(gub)
 names(gub)
 
@@ -30,7 +31,7 @@ gub %>%
   st_set_geometry(NULL) %>% 
   ggplot()+
   geom_histogram(
-    aes(area_km2),bins=100)
+    aes(area_km2_gub),bins=100)
 
 #gub %>% mapview() #great - works!
 #gub %>% plot()
@@ -44,7 +45,7 @@ setwd(here("data-processed"))
 save(gub_nogeo, file = "gub_nogeo.RData")
 #load("gub_nogeo.RData")
 nrow(gub_nogeo)
-summary(gub_nogeo$area_km2)
+summary(gub_nogeo$area_km2_gub)
 gub_nogeo
 ### geometry lookup------
 # lookup for the geometry
@@ -54,15 +55,16 @@ lookup_gub_orig_fid_geo = gub %>%
 setwd(here("data-processed"))
 save(lookup_gub_orig_fid_geo, file = "lookup_gub_orig_fid_geo.RData")
 
-### lookup for city's area----
+### lookup for area of GUB--------
 lookup_gub_area_km2 = gub %>% 
   st_set_geometry(NULL) %>% 
   as_tibble() %>% 
-  dplyr::select(ORIG_FID, area_km2)
+  dplyr::select(ORIG_FID, starts_with("area"))
 
 save(lookup_gub_area_km2, file = "lookup_gub_area_km2.RData")
 
-# Link with city-name data--------  
+# Link with city name data-----
+## First link with simplemaps data------
 #Changes here October 6, 2023
 #8 pm
 #I need a better way to keep track of the data source for city names.
@@ -82,30 +84,24 @@ gub_city_name_simplemaps = gub %>%
   group_by(ORIG_FID) %>% 
   arrange(desc(city_population_simplemaps)) %>% 
   slice(1) %>% 
-  ungroup()
+  ungroup() %>% 
+  mutate(
+    city_name_simplemaps_miss=case_when(
+      is.na(city_name_simplemaps)==T~1,
+      TRUE~0
+    )
+  )
 
-gub_city_name_simplemaps
-names(gub_city_name_simplemaps)
-lookup_gub_geoname_id = gub_city_name_simplemaps %>% 
-  arrange(desc(city_population_geonames)) %>% 
+#no geo version
+gub_city_name_simplemaps_nogeo=gub_city_name_simplemaps %>% 
   st_set_geometry(NULL) %>% 
-  distinct(ORIG_FID, geoname_id)
+  as_tibble() 
+
+#save this
 setwd(here("data-processed"))
-save(lookup_gub_geoname_id, file = "lookup_gub_geoname_id.RData")
+save(gub_city_name_simplemaps_nogeo,file="gub_city_name_simplemaps_nogeo.RData")
 
-lookup_gub_city_name_geonames_geonames = gub_city_name_simplemaps %>% 
-  arrange(desc(city_population_geonames)) %>% 
-  st_set_geometry(NULL) %>% 
-  distinct(ORIG_FID, city_name_geonames)
-setwd(here("data-processed"))
-save(lookup_gub_city_name_geonames_geonames, file = "lookup_gub_city_name_geonames_geonames.RData")
-
-lookup_gub_city_name_geonames_geonames %>% 
-  print(n=100)
-gub_city_name_simplemaps %>% 
-  filter(city_population_geonames>8000000) %>% 
-  mapview(zcol = "city_name_geonames")
-
+### checks--------
 gub_orig_fid_many_names=gub_city_name_simplemaps %>% 
   st_set_geometry(NULL) %>% 
   as_tibble() %>% 
@@ -113,66 +109,115 @@ gub_orig_fid_many_names=gub_city_name_simplemaps %>%
   summarise(n=n()) %>% 
   mutate(orig_fid_many_names = case_when(n>1~1,TRUE~0))
 
+#good - none
 gub_orig_fid_many_names %>% 
   filter(orig_fid_many_names==1)
 
-### missing city names in geonames data-------
-# Oct 6, 2023:
-#I have about 3k cities missing their name.
-#Let's find them and add the name from source 2 if it's missing a name from source 1
-orig_fids_without_geoname_id=lookup_gub_geoname_id %>% 
-  filter(is.na(geoname_id)==T) %>% 
-  mutate(city_name_geoname_miss=1)
+# how many missing?
+gub_city_name_simplemaps_nogeo %>% 
+  group_by(city_name_simplemaps_miss) %>% 
+  summarise( n=n()) %>% 
+  ungroup() %>% 
+  mutate(
+    n_total=sum(n),
+    prop=n/n_total)
+### check missing names-----
+#checks
+table(gub_city_name_simplemaps_nogeo$city_name_simplemaps_miss)
+#okay, still a fair number of missing but maybe not as many?
 
-names(gub_city_name_simplemaps)
-gub_names_add_missing_names=gub_city_name_simplemaps %>% 
-  left_join(orig_fids_without_geoname_id, by = "ORIG_FID") %>% 
-  filter(city_name_geoname_miss==1)
+###lookups----
 
-#now join these with the simple maps data to see if we can pick up more
-names(cities_simplemaps)
-nrow(gub_names_add_missing_names)
-names(gub_names_add_missing_names)
-## lookup simplemaps cities among missing geonames------
-gub_names_missing_geo_join_simple_maps=gub_names_add_missing_names %>% 
-  dplyr::select(ORIG_FID) %>% #to avoid conflicts. note geo is sticky
-  st_join(cities_simplemaps) %>%   
+#lookup for the simplemaps code
+lookup_gub_city_id_simplemaps=gub_city_name_simplemaps_nogeo %>% 
+  distinct(ORIG_FID, city_id_simplemaps)%>% 
+  as_tibble()
+
+setwd(here("data-processed"))
+save(lookup_gub_city_id_simplemaps,file="lookup_gub_city_id_simplemaps.RData")
+
+#lookup for whether simplemaps is miss for that orig_fid
+lookup_gub_simplemaps_miss=gub_city_name_simplemaps_nogeo %>% 
+  distinct(ORIG_FID, city_name_simplemaps_miss) %>% 
+  as_tibble()
+
+setwd(here("data-processed"))
+save(lookup_gub_simplemaps_miss,file="lookup_gub_simplemaps_miss.RData")
+#lookup for whether simplemaps is missing
+
+#note the rest of the simplemaps stuff can be linked in via the lookup created
+#when the simplemaps data was loaded
+
+
+## Link with geonames data-------
+gub_city_name_geonames = gub %>% 
+  st_join(cities_geonames) %>% 
   group_by(ORIG_FID) %>% 
-  arrange(desc(city_population_simplemaps)) %>% 
+  arrange(desc(city_population_geonames)) %>% 
   slice(1) %>% 
   ungroup() %>% 
-  mutate(city_name_simplemaps_miss=case_when(
-    is.na(city_name_simplemaps)==T~1,
-    TRUE~0
-  )
+  mutate(
+    city_name_geonames_miss=case_when(
+      is.na(city_name_geonames)==T~1,
+      TRUE~0
+    )
   )
 
-names(gub_names_missing_geo_join_simple_maps)
-#okay, most are still missing
-nrow(gub_names_missing_geo_join_simple_maps)
-n_distinct(gub_names_missing_geo_join_simple_maps$ORIG_FID)
-table(gub_names_missing_geo_join_simple_maps$city_name_simplemaps_miss)
-gub_names_missing_geo_join_simple_maps %>% 
-  filter(city_name_simplemaps_miss==0) %>% 
-  mapview()
-
-lookup_simplemaps_among_missing_geonames=gub_names_missing_geo_join_simple_maps %>% 
+gub_city_name_geonames
+table(gub_city_name_geonames$city_name_geonames_miss)
+gub_city_name_geonames_nogeo=gub_city_name_geonames %>% 
   st_set_geometry(NULL) %>% 
-  distinct(ORIG_FID,city_name_simplemaps)
+  as_tibble()
 
-nrow(lookup_simplemaps_among_missing_geonames)
-n_distinct(lookup_simplemaps_among_missing_geonames$ORIG_FID)
-lookup_simplemaps_among_missing_geonames
+#what proportion of the GUBs have a name in the geonames data?
+gub_city_name_geonames_nogeo %>% 
+  group_by(city_name_geonames_miss) %>% 
+  summarise( n=n()) %>% 
+  ungroup() %>% 
+  mutate(
+    n_total=sum(n),
+    prop=n/n_total)
+
+###lookups----
+#lookup for the geonames code
+lookup_gub_geoname_id=gub_city_name_geonames_nogeo %>% 
+  distinct(ORIG_FID, geoname_id)
+
+#lookup for whether geonames is miss for that orig_fid
+lookup_gub_geonames_miss=gub_city_name_geonames_nogeo %>% 
+  distinct(ORIG_FID, city_name_geonames_miss)
+
+lookup_gub_geonames_miss
+## Fill in missings with geonames data------
+#Can I fill in the missings with the geonames data?
+names(gub_city_name_simplemaps)
+
+lookup_gub_city_name_simplemaps_miss_geonames_present=gub_city_name_simplemaps %>% 
+  filter(city_name_simplemaps_miss==1) %>% 
+  left_join(lookup_gub_geoname_id,by="ORIG_FID") %>% 
+  left_join(lookup_geoname_id_city_name,by="geoname_id") %>% 
+  left_join(lookup_gub_geonames_miss,by="ORIG_FID") %>% 
+  dplyr::select(ORIG_FID, contains("city_name"), 
+                contains("city_id_simple"),
+                contains("geoname_id")) %>% 
+  filter(city_name_geonames_miss==0) %>% 
+
+
+names(gub_city_name_simplemaps_miss_geonames_present)
+nrow(gub_city_name_simplemaps_miss_geonames_present)
+
+
+
 # Check out specific cities--------
 
 ## Tokyo----
 # What ORIG_FID is Tokyo?
-lookup_gub_city_name_geonames %>% 
+gub_city_name_geonames %>% 
   filter(city_name_geonames == "Tokyo")#2238
 
 ## Schenzhen-----
 #What city does 2238 correspond to? It has a very large area
-lookup_gub_city_name_geonames %>% 
+gub_city_name_geonames %>% 
   filter(ORIG_FID == "2238") #Shenzhen
 
 ## New York City v. Manhattan-------
@@ -180,11 +225,25 @@ lookup_gub_city_name_geonames %>%
 #Which city is New York?
 #begin with pixels of new york, then summarize to new york, etc
 #or maybe Chicago since I know it better, and it might be easier to see
-lookup_gub_city_name_geonames %>% 
+gub_city_name_geonames %>% 
   filter(city_name_geonames == "New York City")
 gub %>% 
   filter(ORIG_FID=="60310") %>% 
   mapview()
+
+
+cities_simplemaps_pro %>% 
+  filter(city_name_simplemaps=="New York") %>% 
+  mapview()
+cities_simplemaps_pro %>% 
+  filter(city_name_simplemaps=="Manhattan") %>% 
+  mapview()
+
+gub_city_name_simplemaps %>% 
+  filter(city_name_simplemaps=="New York")
+gub %>% 
+  filter(ORIG_FID=="60268") %>% 
+  mapview()#darn - this is long island.
 
 #Manhattan. Oh - different Manhattan (Kansas)
 gub %>% 
@@ -197,7 +256,7 @@ gub %>%
   mapview()
 
 
-lookup_gub_city_name_geonames %>% 
+gub_city_name_geonames %>% 
   filter(city_name_geonames == "Chicago")
 
 

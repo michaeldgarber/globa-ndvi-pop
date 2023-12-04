@@ -110,9 +110,12 @@ mutate_steps_hia_ndvi_pop = function(df){
       #Note we should scale the population first, as I think the
       #land-scan data includes everyone, not just 20+, so we could get a proportion 20+
       #Feb 15 2023 adding min/max as well
-      pop_cat_mean_val_scaled = pop_cat_mean_val*pop_ratio_20_plus,
-      pop_cat_min_val_scaled = pop_cat_min_val*pop_ratio_20_plus,
-      pop_cat_max_val_scaled = pop_cat_max_val*pop_ratio_20_plus,
+      #Nov 19, 2023: updating this to be scaled down based on how much
+      #Landscan overestimates the country's pop. See analysis-global code.
+      #Note the minimum is not adjusted but the max and mean are.
+      pop_cat_mean_val_scaled = pop_cat_mean_val_adj*pop_ratio_20_plus,
+      pop_cat_min_val_scaled = pop_cat_min_val*pop_ratio_20_plus,#unchanged min
+      pop_cat_max_val_scaled = pop_cat_max_val_adj*pop_ratio_20_plus,
       
       #a factor version of this
       pop_cat_mean_val_scaled_fac = as.factor(pop_cat_mean_val_scaled),
@@ -131,9 +134,23 @@ mutate_steps_hia_ndvi_pop = function(df){
       n_d_0_mean = death_rate_20_plus*pop_cat_mean_val_scaled,
       n_d_0_min = death_rate_20_plus*pop_cat_min_val_scaled,
       n_d_0_max = death_rate_20_plus*pop_cat_max_val_scaled,
-      
+
+      #paf rate - curious Oct 10  
+      #doesn't matter if rate and PAF are not independent,
+      #just that pop. is
+      paf_rate_pt=paf_pt*death_rate_20_plus,
+
+      #Oct 10, 2023
+      #I have a feeling I know why they're not adding up, because the
+      #denom. includes data from the high-NDVI tertiles...maybe
+      pop_cat_mean_val_scaled_bottom_tertiles=case_when(
+        ndvi_tertile <3 ~       pop_cat_mean_val_scaled,
+        ndvi_tertile==3 ~ 0),
+        
+
       #Attributable deaths
-      #The "mean" here corresponds to the pop category and the "pt" corresponds to the RR
+      #The "mean" (or min/max) here corresponds to the pop category and the "pt" (or ll, ul)
+      #corresponds to the RR
       attrib_d_mean_pt = paf_pt*n_d_0_mean, 
       attrib_d_min_pt = paf_pt*n_d_0_min,
       attrib_d_max_pt = paf_pt*n_d_0_max,
@@ -196,7 +213,7 @@ hia_summarise = function(df){
       pop_cat_mean_val_scaled = sum(pop_cat_mean_val_scaled,na.rm=TRUE),
       pop_cat_min_val_scaled = sum(pop_cat_min_val_scaled,na.rm=TRUE),
       pop_cat_max_val_scaled = sum(pop_cat_max_val_scaled,na.rm=TRUE),
-      
+
       #for completeness, keep the unscaled population as well
       pop_cat_mean_val = sum(pop_cat_mean_val,na.rm=TRUE),
       pop_cat_min_val = sum(pop_cat_min_val,na.rm=TRUE),
@@ -212,6 +229,24 @@ hia_summarise = function(df){
       n_d_prev_min_over_9 = sum(n_d_prev_min_over_9, na.rm=TRUE),
       n_d_prev_max_over_9 = sum(n_d_prev_max_over_9, na.rm=TRUE),
       
+      #October 10, 2023: I also want to include explicit tracking
+      #of the uncertainty due to both sources so that I can verify
+      #my suspicion that the uncertainty of the landscan doesn't affect
+      #the per-population estimates. The rest follows below
+      n_d_prev_min_pt=sum(n_d_prev_min_pt,na.rm=TRUE),
+      n_d_prev_max_pt=sum(n_d_prev_max_pt,na.rm=TRUE),
+      
+      #Oct 10, 2023: not necessary, but I'm curious,
+      #is the average PAF multiplied by the average baselien rate get us the same result?
+      #If so, then that would justify why the population can cancel (one way)
+      #Should work if they're independent (which we assume they are)
+      paf_pt_mean=mean(paf_pt,na.rm=TRUE),
+      death_rate_20_plus_mean=mean(death_rate_20_plus,na.rm=TRUE),
+      #the answer is no, they're different, but they don't need to be independent.
+      #try this
+      paf_rate_pt_mean=mean(paf_rate_pt,na.rm=TRUE),
+      
+    
       #don't need the 2019
       ndvi_mean = mean(ndvi_2019, na.rm=TRUE),
       ndvi_sd = sd(ndvi_2019, na.rm=TRUE),
@@ -225,8 +260,15 @@ hia_summarise = function(df){
       ndvi_diff_75th = quantile(ndvi_diff, probs=c(0.75), na.rm=TRUE),
       
       #adding some other summary values
-      area_km2 = sum(area_km2, na.rm=TRUE),
+      #Good catch - this is the sum of pixels
+      #Oct 10, 2023
+      area_km2= sum(area_km2_pixel,na.rm=TRUE),
       
+      #Oct 10, 2023: I have a hunch this is why my various ways of
+      #summarizing number of deaths prev. per 100k are not adding up
+      pop_cat_mean_val_scaled_bottom_tertiles=sum(pop_cat_mean_val_scaled_bottom_tertiles,na.rm=T)
+      
+
     ) %>% 
     ungroup() %>% 
     mutate(
@@ -240,6 +282,43 @@ hia_summarise = function(df){
         n_d_prev_min_over_9/pop_cat_min_val_scaled)* 1000 ,#yes, over the min value of population
 
       n_d_prev_per_1k_pop_max_over_9 = (
-        n_d_prev_max_over_9/pop_cat_max_val_scaled)* 1000
+        n_d_prev_max_over_9/pop_cat_max_val_scaled)* 1000,
+      
+      #Oct 10, 2023: curious re. my claim that population doesn't affect n_d_prev...
+      #That is, is the n deaths prevented per pop the same within category of population?
+      #I think it will be, but let's check
+      n_d_prev_per_pop_mean_pt = n_d_prev_mean_pt/pop_cat_mean_val_scaled,
+      n_d_prev_per_pop_min_pt = n_d_prev_min_pt/pop_cat_min_val_scaled,
+      n_d_prev_per_pop_max_pt = n_d_prev_max_pt/pop_cat_max_val_scaled,
+      
+      #checking alt. way to calculate attributable rate
+      n_d_prev_per_pop_mean_pt_alt_calc=paf_pt_mean*death_rate_20_plus_mean*-1,
+      
+      
+      #Per 100k as well, per DRR's suggestion, as we did for native plants paper
+      #note 5 deaths per 1k is 500 deaths per 100k
+      n_d_prev_per_100k_pop_pt=n_d_prev_per_1k_pop_pt*100,
+      n_d_prev_per_100k_pop_min_over_9=n_d_prev_per_1k_pop_min_over_9*100,
+      n_d_prev_per_100k_pop_max_over_9=n_d_prev_per_1k_pop_max_over_9*100,
+      
+      #For the table, it'd be easier to have in millions
+      #scaled population - pop of adults 20+
+      pop_cat_mean_val_scaled_millions = pop_cat_mean_val_scaled/1000000,
+      pop_cat_min_val_scaled_millions = pop_cat_min_val_scaled/1000000,
+      pop_cat_max_val_scaled_millions = pop_cat_max_val_scaled/1000000,
+      
+      #for completeness, keep the unscaled population as well
+      pop_cat_mean_val_millions = pop_cat_mean_val/1000000,
+      pop_cat_min_val_millions = pop_cat_min_val/1000000,
+      pop_cat_max_val_millions = pop_cat_max_val/1000000,
+      
+      #Oct 10, 2023
+      #exploring possible reason for various expressions of PAF rate
+      #not adding up...
+      pop_cat_mean_val_scaled_bottom_tertiles_ratio=
+        pop_cat_mean_val_scaled_bottom_tertiles/pop_cat_mean_val,
+      
+      paf_rate_pt_mean_bottom_tertiles=pop_cat_mean_val_scaled_bottom_tertiles_ratio*paf_rate_pt_mean
+
     )
 }

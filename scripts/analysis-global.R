@@ -12,157 +12,20 @@ library(mapview)
 library(tidyverse)
 library(here)
 library(sf)
-#Load data & run preliminary scripts------
-
-## Load data----
-library(tidyverse)
-library(terra)
-library(tidyterra)
-library(here)
 setwd(here("data-processed"))
-pop_ndvi_gub_biome = terra::rast("pop_ndvi_gub_biome.tif") #from merge-rasters.R
-object.size(pop_ndvi_gub_biome)
-names(pop_ndvi_gub_biome)
-res(pop_ndvi_gub_biome)
-dim(pop_ndvi_gub_biome)
-pop_ndvi_gub_biome
-
-setwd(here("data-processed"))
-source(here("scripts", "rojas_green_space_drf.R")) #load dose-response info
-drf_deaths
-#get the merged UN data
-source(here("scripts", "merge-un-countries-geo.R")) 
-countries_joined_with_un_pop_deaths_pared_nogeo
-
-## Run functions----
-#Feb 21, 2023:
-#I moved to its own script so that I can run the same functions
-#for the global analysis as for the USA analysis. 
-#Feb 22 - this now includes landscan wrangling function as well
 source(here("scripts", "analysis-functions.R"))
 source(here("scripts", "read-boundaries-states-countries.R"))#load some lookups
 
+#Dec 1, 2023: For the code that's used to create the "_not_miss"
+#dataset, see
+#scripts/final-data-combining.R
 
-
-# Convert to tibble--------
-#Feb 9 23 4:00 pm
-#I'm having issues converting the entire raster stack into a tibble, as I did above
-#for the USA analyis. R keeps aborting with a fatal error.
-#That is, in theory, this should work, but it doesn't due to memory issues
-# pop_ndvi_gub_biome_df = pop_ndvi_gub_biome %>% 
-#   tidyterra::as_tibble()
-
-
-#so maybe I can do it this way and then cbind them all together since they have the 
-#same dimensions, as confirmed in ~merge.rasters.R
-#Okay, this seems to be working. Let's go.
-names(pop_ndvi_gub_biome)
-ls_1 = pop_ndvi_gub_biome$`landscan-global-2019-colorized_1` %>% tidyterra::as_tibble()
-ls_2 = pop_ndvi_gub_biome$`landscan-global-2019-colorized_2` %>% tidyterra::as_tibble()
-ls_3 = pop_ndvi_gub_biome$`landscan-global-2019-colorized_3` %>% tidyterra::as_tibble()
-ls_4 = pop_ndvi_gub_biome$`landscan-global-2019-colorized_4` %>% tidyterra::as_tibble()
-
-#okay, those all worked. now can I create a smaller tib without the landscan columns?
-#405 pm hasn't failed yet.
-#Didn't get a fatal error that it aborted, but did get a vector memory exhausted.
-#Okay, let's go one by one then
-ndvi_2019 = pop_ndvi_gub_biome$ndvi_2019 %>% 
-  tidyterra::as_tibble()
-
-ORIG_FID = pop_ndvi_gub_biome$ORIG_FID %>% 
-  tidyterra::as_tibble()
-
-BIOME_NAME = pop_ndvi_gub_biome$BIOME_NAME %>% 
-  tidyterra::as_tibble()
-
-#saving as I go, as this sometimes doesn't run.
-#Feb 23 2023 - I had to restart R and clear objects for this to work.
-#Oct 6, 2023: want to change the name of _en to _ne for natural earth
-#to keep track of where the country name comes from.
-country_name_en = pop_ndvi_gub_biome$country_name_en %>% 
-  tidyterra::as_tibble()
-setwd(here("data-processed"))
-save(country_name_en, file = "country_name_en.RData")
-
-
-nrow(country_name_en) #933 million
-nrow(BIOME_NAME)
-nrow(ORIG_FID)
-nrow(ndvi_2019)
-#Another idea: 542 pm: restrict to values where GUB (ORIG_FID) is not missing
-names(pop_ndvi_gub_biome)
-# pop_ndvi_gub_biome_ORIG_FID_not_miss = pop_ndvi_gub_biome %>% 
-#   tidyterra::filter(is.na(ORIG_FID)==FALSE) 
-# doesn't work on the raster
-#here but could do once it's a tibble.
-
-# hi = ORIG_FID %>% 
-#   mutate(ORIG_FID_miss = case_when(is.na(ORIG_FID) ~1, TRUE ~0))
-# hi %>% group_by(ORIG_FID_miss) %>% summarise(n=n())
-#931918881 missing
-#1201119 non missing
-1201119/(1201119+931918881)*100 
-##about 0.1% have ORIG_FID, so limit entire dataset to where it's not missing
-#that should make it much more manageable. try it.
-#table(country_name_en$country_name_en)
-#table(BIOME_NAME$BIOME_NAME)
-
-# Data wrangling steps / HIA------
-#Do the landscan data wrangling steps
-#Function from ~read-ls-pop.R
-
-  
-#Now combine them all together again. This could theoretically
-#all be done in one piped sequence, but I'm going to separate the steps out 
-#so that I can save as I go.
-pop_ndvi_gub_biome_tib_int1 = ls_1 %>% 
-  bind_cols(
-    ls_2, ls_3, ls_4, ndvi_2019, ORIG_FID, BIOME_NAME, country_name_en
-  ) 
-#Feb 23 2023 - this is throwing a memory error. it's not necessary
-# pop_ndvi_gub_biome_tib_int2=pop_ndvi_gub_biome_tib_int1 %>% 
-#   mutate(
-#     ORIG_FID_miss = case_when(
-#       is.na(ORIG_FID) ~1, 
-#       TRUE ~0)
-#     )
-    
-
-object.size(pop_ndvi_gub_biome_tib_int1) #this is 50 GB of data.
-dim(pop_ndvi_gub_biome_tib_int1)
-names(pop_ndvi_gub_biome_tib_int1)
-
-## Filter to non-missing cities and landscan pop wrangling-------
-#okay, now filter to non-missing values of ORIG_FID (fingers crossed)
-
-#Feb 21, 2023: I'm going to my Landscan wrangling steps here
-#because I'd like to get some summary stats of cities by population and area
-#to be used as a filter below.
-pop_ndvi_gub_biome_tib_gub_not_miss = pop_ndvi_gub_biome_tib_int1 %>% 
-  filter(is.na(ORIG_FID)==FALSE)  %>% 
-  #should work on the tibble as well. originally created ~read-ls-pop.R
-  #now (feb 22, 2023) can be found in analysis-functions.R
-  landscan_pop_wrangle()
-  
-
-#Code to be used interactively differs from above to save time.
-# pop_ndvi_gub_biome_tib_gub_not_miss_int =pop_ndvi_gub_biome_tib_gub_not_miss
-# pop_ndvi_gub_biome_tib_gub_not_miss = pop_ndvi_gub_biome_tib_gub_not_miss_int %>%
-#   landscan_pop_wrangle()
-
-names(pop_ndvi_gub_biome_tib_gub_not_miss)
-nrow(pop_ndvi_gub_biome_tib_gub_not_miss)
-object.size(pop_ndvi_gub_biome_tib_gub_not_miss) 
-#yay! this worked. let's save Feb 9 2023 - 6 pm
-setwd(here("data-processed"))
-save(pop_ndvi_gub_biome_tib_gub_not_miss, 
-     file = "pop_ndvi_gub_biome_tib_gub_not_miss.RData")
 load("pop_ndvi_gub_biome_tib_gub_not_miss.RData")
 object.size(pop_ndvi_gub_biome_tib_gub_not_miss) 
 nrow(pop_ndvi_gub_biome_tib_gub_not_miss)
 names(pop_ndvi_gub_biome_tib_gub_not_miss)
 
-### Checks of intermediate dataset-----
+
 #Of those with non-missing GUB, how many with NDVI below 0?
 pop_ndvi_gub_biome_tib_gub_not_miss %>% 
   filter(ndvi_2019<0) %>% 
@@ -175,17 +38,239 @@ pop_ndvi_gub_biome_tib_gub_not_miss %>%
 #7550
 7550/nrow(pop_ndvi_gub_biome_tib_gub_not_miss)
 
+pop_ndvi_gub_biome_tib_gub_not_miss %>% 
+  distinct(country_name_en) %>% 
+  View()
+
 
 
 # Lookups-------
-## lookup for city area and population----
+
+## lookups: country level -----------
+# in case country is missing from city data
+names(pop_ndvi_gub_biome_tib_gub_not_miss)
+#note some of these overlap multiple countries, so do the below
+#Oct 9, 2023: it's causing an error to have this include pop_cat_min_val.
+#Exclude that
+lookup_orig_fid_country_name_en=pop_ndvi_gub_biome_tib_gub_not_miss %>% 
+  group_by(ORIG_FID,country_name_en) %>% 
+  summarise(pop_cat_min_val=sum(pop_cat_min_val,na.rm=T)) %>% 
+  group_by(ORIG_FID) %>% 
+  arrange(desc(pop_cat_min_val)) %>% 
+  slice(1) %>% #grab the top
+  ungroup() %>% 
+  arrange(ORIG_FID) %>% 
+  dplyr::select(ORIG_FID, country_name_en)
+
+lookup_orig_fid_country_name_en
+setwd(here("data-processed"))
+save(lookup_orig_fid_country_name_en,file="lookup_orig_fid_country_name_en.RData")
+
+
+### Estimate country pop with LandScan vs UN estimates------
+
+#Dec 1, 2023:
+#as an overall check, what's the world population in 2019 according to LandScan
+#If we sum over all cells?
+names(pop_ndvi_gub_biome_tib_gub_not_miss)
+total_world_pop_per_ls=pop_ndvi_gub_biome_tib_gub_not_miss %>% 
+  mutate(overall=1) %>% 
+  group_by(overall) %>% 
+  summarise(
+    pop_cat_min_val=sum(pop_cat_min_val,na.rm=T),
+    pop_cat_max_val=sum(pop_cat_max_val,na.rm=T)
+    )
+
+total_world_pop_per_ls
+mean(c(2,3))
+mean(c(total_world_pop_per_ls$pop_cat_min_val,
+     total_world_pop_per_ls$pop_cat_max_val))
+
+
+#Nov 19 2023: here to calculate the ratio of UN pop vs Landscan upper bound
+#Load this lookup, created in ~read-united-nations-gbd-data.R
+lookup_country_name_en_pop_total_absolute
+names(pop_ndvi_gub_biome_tib_gub_not_miss)
+# pop_ndvi_gub_biome_tib_gub_not_miss %>% 
+#   distinct(country_name_en) %>% 
+#   View()
+#ls for landscan; un for united nations
+names(pop_ndvi_gub_biome_tib_gub_not_miss)
+table(pop_ndvi_gub_biome_tib_gub_not_miss$pop_cat_1_8)
+country_pop_ls_un=pop_ndvi_gub_biome_tib_gub_not_miss %>% 
+  group_by(country_name_en) %>% 
+  summarise(
+    pop_cat_mean_val_country_name_en = sum(pop_cat_mean_val,na.rm=TRUE),
+    pop_cat_min_val_country_name_en = sum(pop_cat_min_val,na.rm=TRUE),
+    pop_cat_max_val_country_name_en = sum(pop_cat_max_val,na.rm=TRUE)
+  ) %>% 
+  ungroup() %>% 
+  #Link the UN estimate by country
+  left_join(lookup_country_name_en_pop_total_absolute,by="country_name_en") %>% 
+  #now estimate ratios: at the country level,
+  #what's the ratio of what UN says vs what LandScan values added up are?
+  mutate(
+    #again, ls means landscan, and un means united nations
+    #Makes the most sense to express the ratio as UN vs the Landscan.
+    #That way, I can simply apply this ratio as a weight to the estimates.
+    
+    ratio_pop_un_v_pop_cat_mean_ls=pop_total_absolute/pop_cat_mean_val_country_name_en,
+    ratio_pop_un_v_pop_cat_max_ls=pop_total_absolute/pop_cat_max_val_country_name_en,
+    ratio_pop_un_v_pop_cat_min_ls=pop_total_absolute/pop_cat_min_val_country_name_en
+  )
+
+#check the distribution of those ratios
+summary(country_pop_ls_un$ratio_pop_un_v_pop_cat_mean_ls)
+country_pop_ls_un %>% 
+  ggplot(aes(x=ratio_pop_un_v_pop_cat_mean_ls))+
+  geom_histogram()
+
+summary(country_pop_ls_un$ratio_pop_un_v_pop_cat_max_ls)
+country_pop_ls_un %>% 
+  ggplot(aes(x=ratio_pop_un_v_pop_cat_max_ls))+
+  geom_histogram()
+
+#Intersting: so, maybe you can keep the min as is,
+#as the ratio of the true pop and the min is such that
+#the true pop is higher than the min, which we'd expect.
+#Just scale the max.
+summary(country_pop_ls_un$ratio_pop_un_v_pop_cat_min_ls)
+country_pop_ls_un %>% 
+  ggplot(aes(x=ratio_pop_un_v_pop_cat_min_ls))+
+  geom_histogram()
+#Nov 19, 2023
+#I shouldn't use the mean; it's pointless at this stage. I can
+#take the mean of the two estimates later.
+#So, downstream in the analysis code, link by country,
+#and then use this ratio to estimate pops at the city level using
+#these country-level ratios
+
+#This is the ratio we need. Then, downstream, calculate
+#the mean between this value and the landscan min.
+
+lookup_country_name_en_ratio_pop_un_v_pop_cat_max_ls=country_pop_ls_un %>% 
+  dplyr::select(country_name_en,ratio_pop_un_v_pop_cat_max_ls)
+
+#Nov 19; examine and fix missings
+#Fixed. see above.
+#lookup_country_name_en_ratio_pop_un_v_pop_cat_max_ls %>% View()
+
+### examine pop issue excluding top category-------
+#what if we exclude the top category?
+#I may just want to adjust that top category. 
+table(pop_ndvi_gub_biome_tib_gub_not_miss$pop_cat_1_8)
+country_pop_ls_un_exclude_top=pop_ndvi_gub_biome_tib_gub_not_miss %>% 
+  filter(pop_cat_1_8!=8) %>% 
+  group_by(country_name_en) %>% 
+  summarise(
+    #I'm calling these 1-7 because they exclude the top 8
+    pop_cat_1_7_mean_val_country_name_en = sum(pop_cat_mean_val,na.rm=TRUE),
+    pop_cat_1_7_min_val_country_name_en = sum(pop_cat_min_val,na.rm=TRUE),
+    pop_cat_1_7_max_val_country_name_en = sum(pop_cat_max_val,na.rm=TRUE)
+  ) %>% 
+  ungroup() %>% 
+  #Link the UN estimate by country
+  left_join(lookup_country_name_en_pop_total_absolute,by="country_name_en") %>% 
+  #now estimate ratios: at the country level,
+  #what's the ratio of what UN says vs what LandScan values added up are?
+  mutate(
+    #again, ls means landscan, and un means united nations
+    #Makes the most sense to express the ratio as UN vs the Landscan.
+    #That way, I can simply apply this ratio as a weight to the estimates.
+    
+    ratio_pop_un_v_pop_cat_1_7_mean_ls=pop_total_absolute/pop_cat_1_7_mean_val_country_name_en,
+    ratio_pop_un_v_pop_cat_1_7_max_ls=pop_total_absolute/pop_cat_1_7_max_val_country_name_en,
+    ratio_pop_un_v_pop_cat_1_7_min_ls=pop_total_absolute/pop_cat_1_7_min_val_country_name_en
+  )
+
+
+
+#check again
+summary(country_pop_ls_un_exclude_top$ratio_pop_un_v_pop_cat_mean_ls)
+country_pop_ls_un %>% 
+  ggplot(aes(x=ratio_pop_un_v_pop_cat_mean_ls))+
+  geom_histogram()
+
+#okay, so the culprit really is this top category, because
+#when I exclude the top, the true UN pop is quite a bit higher
+#than the landscan estimated value
+summary(country_pop_ls_un_exclude_top$ratio_pop_un_v_pop_cat_1_7_max_ls)
+country_pop_ls_un_exclude_top %>% 
+  ggplot(aes(x=ratio_pop_un_v_pop_cat_1_7_max_ls))+
+  geom_histogram()
+
+###a factor that corrects the top LandScan bound only at the country level-----
+#the algebra is this:
+# bottom_7+top*weight=truth
+# top*weight=truth-bottom_7
+# 
+# weight=(truth-bottom_7)/top
+#I have the bottom 7 estimates above.
+#Getting rid of the ratios but otherwise can simply join it in with the top cat below
+country_pop_ls_un_exclude_top_for_join=country_pop_ls_un_exclude_top %>% 
+  dplyr::select(-starts_with("ratio"))
+
+country_pop_ls_un_exclude_top_for_join
+#I need to make one for just the top now.
+country_pop_ls_un_top_only=pop_ndvi_gub_biome_tib_gub_not_miss %>% 
+  filter(pop_cat_1_8==8) %>% 
+  group_by(country_name_en) %>% 
+  summarise(
+    #I'm calling these 1-7 because they exclude the top 8
+    pop_cat_8_mean_val_country_name_en = sum(pop_cat_mean_val,na.rm=TRUE),
+    pop_cat_8_min_val_country_name_en = sum(pop_cat_min_val,na.rm=TRUE),
+    pop_cat_8_max_val_country_name_en = sum(pop_cat_max_val,na.rm=TRUE)
+  ) %>% 
+  ungroup() 
+
+names(country_pop_ls_un_exclude_top_for_join)
+pop_cat_8_corrected_country_name=country_pop_ls_un_top_only %>% 
+  left_join(country_pop_ls_un_exclude_top_for_join,by="country_name_en") %>% 
+  mutate(
+    #Now define the correction factor following algebra above.
+    pop_cat_8_max_wt=(pop_total_absolute-pop_cat_1_7_max_val_country_name_en)/
+      pop_cat_8_max_val_country_name_en
+  )
+
+#Distribution of weights
+summary(pop_cat_8_corrected_country_name$pop_cat_8_max_wt)
+#note there are a couple negative weights because sometimes
+#the bottom 7 categories add up to more than the truth.
+#if so, then the negative weight makes sense.
+pop_cat_8_corrected_country_name %>% 
+  ggplot(aes(x=pop_cat_8_max_wt))+
+  geom_histogram()
+
+pop_cat_8_corrected_country_name %>% View()
+
+#Okay, now let's grab a look-up for just that weight at the country level
+#Hmm, this does work, but notice that the US has negative weights.
+#This is because the sum of the bottom 7 categories exceeds the true total at
+#the country level. That would make city-specific results strange.
+#Another idea might be to apply the weight to the top 2 categories
+#together rather than just the top. This would allow us to still carry out
+#the analysis at the city level. Things might get a little strange depending
+#on the distribution of the 7s and 8s
+
+#Or we could simply apply the weight across the board, using
+#those that we calculated at first.
+#That wouldn't differentially affect the pop. categories, 
+#even if it's the case that most of the over-estimation
+#is coming from the top categories. Let's do that approach.
+
+## Lookups: GUB level (ORIG_FID)--------
+source(here("scripts", "read-boundaries-states-countries.R"))#load some lookups
 #Can't do this in the steps below because that's at the pixel level,
 #whereas this needs to be at the city level
 names(pop_ndvi_gub_biome_tib_gub_not_miss)
 #note this isn't the scaled value.
-load("lookup_gub_city_id.RData")
 load("lookup_gub_area_km2.RData")
-lookup_gub_pop_area = pop_ndvi_gub_biome_tib_gub_not_miss %>% 
+
+#Oct 7, 2023: in this code, we can also create an indicator for
+#whether there is a duplicate city name
+#I had lots of analysis steps in the HIA, but many ought to be done here
+
+lookup_gub_several_vars = pop_ndvi_gub_biome_tib_gub_not_miss %>% 
   group_by(ORIG_FID) %>% 
   summarise(
     #have to name them something different so they can be joined
@@ -195,16 +280,28 @@ lookup_gub_pop_area = pop_ndvi_gub_biome_tib_gub_not_miss %>%
     pop_cat_max_val_gub = sum(pop_cat_max_val,na.rm=TRUE)
   ) %>% 
   ungroup() %>% 
-  left_join(lookup_gub_area_km2, by ="ORIG_FID") %>% #area of GUB
-  left_join(lookup_gub_city_id, by = "ORIG_FID") %>% #link city ID
-  #Sep 29, 2023 note:
-  #note this city_population comes from 
-  #https://public.opendatasoft.com/explore/dataset/geonames-all-cities-with-a-population-1000/
-  #which does not necessarily equal the same land area / definition as the urban areas
-  #otherwise used.
-  #This lookup is defined here
-  #global-ndvi-pop/scripts/read-boundaries-states-countries.R
-  left_join(lookup_city_id_city_population_geonames, by = "geoname_id") %>%  #link pop of city id
+#  left_join(lookup_gub_area_km2, by ="ORIG_FID") %>% #area of GUB #Oct 9 - don't need this here
+
+  #Oct 7, 2023: lookups that were previously in the hia step,
+  #but they can be here
+  #Oct 6, 2023 new lookups
+  #These look-ups are created in ~read-gub.R
+  left_join(lookup_gub_city_id_simplemaps,by="ORIG_FID") %>% #simplemaps id
+  #whether simplemaps name missing
+  left_join(lookup_gub_simplemaps_miss,by="ORIG_FID") %>%
+  
+  #the rest of simplemaps stuff
+  left_join(lookup_all_vars_simplemaps_nogeo,by="city_id_simplemaps") %>% 
+  
+  #link geonames stuff
+  left_join(lookup_gub_geoname_id,by="ORIG_FID") %>% #geoname_id
+  left_join(lookup_gub_geonames_miss,by="ORIG_FID") %>% 
+  
+  left_join(lookup_all_vars_geonames_nogeo,by="geoname_id") %>% 
+  
+  #add country name based on the vector data
+  left_join(lookup_orig_fid_country_name_en,by="ORIG_FID") %>% 
+  
   #Per Ana's book (Chapter 2), it can be important to classify cities by size
   #Some popular categories (figure 2.4, urban public health)
   #: fewer than 300k, 300k to 500k, 500k to 1 million, 1 to 5 million
@@ -218,94 +315,202 @@ lookup_gub_pop_area = pop_ndvi_gub_biome_tib_gub_not_miss %>%
   #within the GUB. I think the more interpretable result will be via
   #the city-specific numbers, even if it doesn't correspond to the total GUB
   mutate(
+    
+    #a city name for either source
+    city_name_either_source=case_when(
+      is.na(city_name_simplemaps)==T~trimws(city_name_geonames),
+      TRUE ~trimws(city_name_simplemaps)
+    ),
+    
+    #both sources are missing
+    city_name_miss_both_sources=case_when(
+      is.na(city_name_either_source)==T~1,
+      TRUE~0),
+    
+    #if city name is missing either source, then include the orig_fid
+    city_name_either_source_force_not_miss=case_when(
+      city_name_miss_both_sources==1~paste0("GUB ",as.character(ORIG_FID)),
+      TRUE~city_name_either_source
+    ),
+    
+    #add city name, country name for vis
+    city_name_country_name=paste0(
+      city_name_either_source_force_not_miss,", ",
+      country_name_en),
+    
+    #and a version with an admin code as well
+    city_name_admin_code_country_name=paste0(
+      city_name_either_source_force_not_miss,", ",
+      admin_code_simplemaps,", ",
+      country_name_en),
+    
+    city_population_either_source=case_when(
+      is.na(city_population_geonames)==F~city_population_geonames,
+      is.na(city_population_geonames)==T~city_population_simplemaps
+    ),
+    
     #The first classification system is from Figure 2.4, Urban Public Health
     #and corresponds to specific city boundaries
-    pop_cat_breaks_city_geonames=cut(city_population_geonames, 
+    pop_cat_breaks_city_either_source=cut(city_population_either_source, 
                      breaks=c(0,300000,500000,1000000,5000000,10000000, 25000000)),
     #The second corresponds to the Atlas of Urban Expansion and we therefore use
     #the landscan population values. let's go with mean.
     #aue for atlas of urban expansion; ls for landscan
-    pop_cat_breaks_gub_aue_ls=cut(pop_cat_mean_val_gub,
-                           breaks=c(0,100000,427000,1570000,5715000,
-                                    300000000)#last category is 300,000,000 - max mean value
+    pop_cat_breaks_gub_aue_ls=cut(
+                pop_cat_mean_val_gub,
+                breaks=c(0,100000,427000,1570000,5715000,
+                                    300000000),#last category is 300,000,000 - max mean value
+                include.lowest = TRUE,
+                dig.lab = 9#avoid scientific notation
                            )
     )
   
+#Check on pop var
+lookup_gub_several_vars %>% 
+  dplyr::select(ORIG_FID, starts_with("city_popul")) %>% 
+  slice(1:1000) 
+
+lookup_gub_several_vars %>% 
+  group_by(pop_cat_breaks_gub_aue_ls) %>% 
+  summarise(n=n())
+
+# lookup_gub_several_vars %>% 
+#   filter(city_name_either_source=="Bazhou") %>% 
+#   View()
+
+names(lookup_gub_several_vars)
+lookup_gub_several_vars %>% 
+  distinct(country_name_en) %>% 
+  View()
+table(lookup_gub_several_vars$country_name_en)
+
+#how many GUBs are missing city names from both sources?
+
+lookup_gub_several_vars %>% 
+  group_by(city_name_miss_both_sources) %>% 
+  summarise( n=n()) %>% 
+  ungroup() %>% 
+  mutate(
+    n_total=sum(n),
+    prop=n/n_total)
+
+#Oct 9 2023
+#it looks like I still need a lookup containing area and pop of GUB
+#This is more pared down than the earlier version of this lookup - no pop. information
+#from the city-level sources
+lookup_gub_pop_area=lookup_gub_several_vars %>% 
+  dplyr::select(ORIG_FID,
+                starts_with("pop_cat_mean_val_gub"),
+                starts_with("pop_cat_min_val_gub"),
+                starts_with("pop_cat_max_val_gub")) %>% 
+  left_join(lookup_gub_area_km2, by ="ORIG_FID")
+
 lookup_gub_pop_area
 setwd(here("data-processed"))
 save(lookup_gub_pop_area, file = "lookup_gub_pop_area.RData")
-load("lookup_gub_city_name.RData")
+### duplicate city names---------
 
-## lookup for country in case country is missing from city data-------
-names(pop_ndvi_gub_biome_tib_gub_not_miss)
-#note some of these overlap multiple countries, so do the below
-lookup_orig_fid_country_name_en=pop_ndvi_gub_biome_tib_gub_not_miss %>% 
-  group_by(ORIG_FID,country_name_en) %>% 
-  summarise(pop_cat_min_val=sum(pop_cat_min_val,na.rm=T)) %>% 
-  group_by(ORIG_FID) %>% 
-  arrange(desc(pop_cat_min_val)) %>% 
-  slice(1) %>% #grab the top
+city_name_country_name_dupe=lookup_gub_several_vars %>% 
+  group_by(city_name_country_name) %>% 
+  summarise(n=n()) %>% 
   ungroup() %>% 
-  arrange(ORIG_FID)
+  filter(n>1) %>% #greater than 1! not gt 2
+  mutate(
+    city_name_country_name_dupe=1
+  )
+nrow(city_name_country_name_dupe)
 
-lookup_orig_fid_country_name_en
 
+#okay, for presentation purposes, add this back into the main gub lookup table
+lookup_gub_several_vars_wrangle=lookup_gub_several_vars %>% 
+  left_join(city_name_country_name_dupe,by="city_name_country_name") %>% 
+  #a version that includes the admin only if it's a duplicate city-name-country name
+  mutate(
+    city_name_country_name_admin_if_dupe=case_when(
+      #if duplicate city name
+      city_name_country_name_dupe==1~paste0(
+          city_name_either_source_force_not_miss,
+                        ", ",
+          admin_code_simplemaps,
+                        ", ",
+        country_name_en),
+      
+      #if not duplicate city name, just
+      #use city_name_country_name
+      TRUE ~city_name_country_name
+      
+    )
+  )
 
 setwd(here("data-processed"))
-save(lookup_orig_fid_country_name_en,file="lookup_orig_fid_country_name_en.RData")
+save(lookup_gub_several_vars_wrangle, file = "lookup_gub_several_vars_wrangle.RData")
+
+#I need a look-up that excludes area_km2 and pop_cat_min_val, as these
+#will be recreated when the hia_summarise() function is run
+lookup_gub_city_info=lookup_gub_several_vars_wrangle %>% 
+  dplyr::select(-starts_with("area_km2"),
+                -starts_with("pop_cat_min_val_gub"),
+                -starts_with("pop_cat_mean_val_gub"),
+                -starts_with("pop_cat_max_val_gub"))
+
+names(lookup_gub_city_info)
+setwd(here("data-processed"))
+save(lookup_gub_city_info, file = "lookup_gub_city_info.RData")
+
+#check
+lookup_gub_several_vars_wrangle %>% 
+  dplyr::arrange(city_name_country_name_dupe,city_name_country_name) %>% 
+  dplyr::select(ORIG_FID, starts_with("city_name")) %>% 
+  slice(1:5000) 
+
+#check some that still seem to be appearing as dupes in the figures
+# lookup_gub_several_vars_wrangle %>% 
+#   filter(city_name_either_source=="Bazhou") %>% 
+#   View()
+
+
+
+
+
+
 
 #Examine city population
-lookup_gub_pop_area %>% 
-  left_join(lookup_gub_city_name, by = "ORIG_FID") %>% 
+lookup_gub_several_vars_wrangle %>% 
   arrange(desc(pop_cat_mean_val_gub))
 
-lookup_gub_pop_area %>% 
-  left_join(lookup_gub_city_name, by = "ORIG_FID") %>% 
-  arrange(desc(city_population))
-
-summary(lookup_gub_pop_area$pop_cat_min_val_gub)
-summary(lookup_gub_pop_area$pop_cat_mean_val_gub)
-summary(lookup_gub_pop_area$pop_cat_max_val_gub)
 
 #How does city_pop generally plot against landsat values
-lookup_gub_pop_area %>% 
+names(lookup_gub_several_vars_wrangle)
+lookup_gub_several_vars_wrangle %>% 
+  filter(is.na(city_population_either_source)==F) %>% 
   filter(pop_cat_mean_val_gub>100000) %>% 
-  ggplot(aes(x=city_population,y= pop_cat_min_val_gub))+
+  ggplot(aes(x=city_population_either_source,y= pop_cat_min_val_gub))+
   geom_point()
-
-lookup_gub_pop_area %>% 
-  filter(pop_cat_mean_val_gub>100000) %>% 
-  ggplot(aes(pop_cat_mean_val_gub))+
-  geom_histogram()
-
-summary(lookup_gub_pop_area$pop_cat_mean_val_gub)
-summary(lookup_gub_pop_area$pop_cat_min_val_gub)
-summary(lookup_gub_pop_area$pop_cat_max_val_gub)
-summary(lookup_gub_pop_area$city_population)
 
 #the issue with strictly using city_population is that there are some GUBs that
 #don't have a corresponding city
-lookup_gub_pop_area %>% 
+lookup_gub_several_vars_wrangle %>% 
   filter(pop_cat_min_val_gub>1000) %>% #using minimum to be conservative (err on including)
-  filter(area_km2 >5) %>% 
-  group_by(pop_cat_breaks_city) %>% 
+  left_join(lookup_gub_area_km2, by ="ORIG_FID") %>% 
+  filter(area_km2_gub >5) %>% 
+  group_by(pop_cat_breaks_city_either_source) %>% 
   summarise(n=n())
 
 #This looks pretty good. We can go with this.
 
-lookup_gub_pop_area %>% 
+lookup_gub_several_vars_wrangle %>% 
   filter(pop_cat_min_val_gub>1000) %>% #using minimum to be conservative (err on including)
-  filter(area_km2 >5) %>% 
+  left_join(lookup_gub_area_km2, by ="ORIG_FID") %>% 
+  filter(area_km2_gub >5) %>% 
   group_by(pop_cat_breaks_gub_aue_ls) %>% 
   summarise(n=n())
 
 #a lookup just for the population categories I just created
-lookup_city_gub_pop_cat_breaks=lookup_gub_pop_area %>% 
+lookup_city_gub_pop_cat_breaks=lookup_gub_several_vars_wrangle %>% 
   dplyr::select(ORIG_FID,starts_with("pop_cat_breaks"))
 
 setwd(here("data-processed"))
 save(lookup_city_gub_pop_cat_breaks,file="lookup_city_gub_pop_cat_breaks.RData")
-  
   
 
 ## lookup for city-biome-----------
@@ -346,7 +551,7 @@ lookup_gub_biome_top  %>%
   nrow()
 #325 of 64694
 325/64694
-nrow(lookup_gub_biome_top )
+nrow(lookup_gub_biome_top)
 load("lookup_gub_orig_fid_geo.RData")
 lookup_gub_biome_top  %>% 
   filter(is.na(biome_name_top)==TRUE) %>% 
@@ -380,12 +585,18 @@ lookup_pop_cat_max_fac
 
 # Main analysis steps----
 names(countries_joined_with_un_pop_deaths_pared_nogeo)
+names(lookup_gub_several_vars_wrangle)
+names(pop_ndvi_gub_biome_tib_gub_not_miss)#note we don't have a measure of area
+#can just assume it's one, though?
+load("countries_joined_with_un_pop_deaths_pared_nogeo.RData")
+source(here("scripts", "rojas_green_space_drf.R")) #load dose-response info if needed
 pop_ndvi_gub_biome_tib = pop_ndvi_gub_biome_tib_gub_not_miss %>% 
   bind_cols(drf_deaths) %>%   #add DRF to every row (regardless of country)
   #add number of deaths to every row (would be a left_join for more countries)
   #just the USA here so could use bind_cols() but using left_join() for scalability
   left_join(countries_joined_with_un_pop_deaths_pared_nogeo, by = "country_name_en") %>% 
   mutate(pixel_id = row_number()) %>% #row number for a given pixel
+  mutate(area_km2_pixel=1) %>% #assume it's one I suppose Oct 10, 2023
   filter(is.na(pop_cat_1_8)==FALSE) %>% #NAs throwing error 
   filter(ndvi_2019>0) %>% #exclude NDVI below 0 (water)
   #link in the city-biome lookup so that I can impute biomes
@@ -393,17 +604,26 @@ pop_ndvi_gub_biome_tib = pop_ndvi_gub_biome_tib_gub_not_miss %>%
   left_join(lookup_gub_biome_top , by = "ORIG_FID") %>% 
   #Feb 21 2023: now, if a given pixel is missing a biome, set it to the value
   #of the most common biome for that city
+  
+  #Nov 19, 2023: add this weight on the LandScan population
+  left_join(lookup_country_name_en_ratio_pop_un_v_pop_cat_max_ls,by="country_name_en") %>% 
   mutate(
     #imp for imputed (if necessary)
     biome_name_imp=case_when(
       is.na(BIOME_NAME==TRUE) ~biome_name_top,
-      TRUE ~BIOME_NAME)
+      TRUE ~BIOME_NAME),
+    
+    #recalculate the mean based on this weight and make
+    #changes in the analysis function accordingly
+    pop_cat_max_val_adj=pop_cat_max_val*ratio_pop_un_v_pop_cat_max_ls,
+    #Now the mean can be adjusted based on that and the true min
+    pop_cat_mean_val_adj=(pop_cat_max_val_adj+pop_cat_min_val)/2
   ) %>% 
   #link area and population of the global urban boundary.
   #only include gubs above 5 square km and above 1,000 residents (min per landscan)
   left_join(lookup_gub_pop_area, by ="ORIG_FID") %>% 
   filter(pop_cat_min_val_gub>1000) %>% #using minimum to be conservative (err on including)
-  filter(area_km2 >5) %>% 
+  filter(area_km2_gub >5) %>% #Oct 10 - updated with suffix
   #add a country group here first so I can summarize by country. this order is good.
   group_by(country_name_en, biome_name_imp, ORIG_FID, pop_cat_1_8) %>%
   mutate_steps_hia_ndvi_pop() %>% #see ~analysis-functions.R

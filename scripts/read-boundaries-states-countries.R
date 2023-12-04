@@ -218,13 +218,9 @@ cities_simplemaps_basic
 setwd(here("data-processed"))
 save(cities_simplemaps_basic, file = "cities_simplemaps_basic.RData")
 #42,905 - Oct 6, 2023: I wonder if this would pick up those missing from source 2
-nrow(cities_simplemaps)
-names(cities_simplemaps)
-cities_simplemaps %>% 
-  st_set_geometry(NULL)
 
 #for a given city id (use id, not name), what is country?
-lookup_city_id_simple_maps_country = cities_simplemaps %>% 
+lookup_city_id_simple_maps_country = cities_simplemaps_basic %>% 
   st_set_geometry(NULL) %>% 
   distinct(country_name_simplemaps,city_id_simplemaps)
 
@@ -242,25 +238,43 @@ cities_simplemaps_pro = readr::read_delim("worldcities.csv") %>%
     city_id_simplemaps=id,
     city_name_simplemaps = city,
     city_population_simplemaps = population,
-    country_name_simplemaps=country
+    country_name_simplemaps=country,
+    admin_name_simplemaps=admin_name,#eg province or state
+    iso3_simplemaps=iso3,#3-letter country abbrev
+    admin_type_simplemaps=admin_type,
+    admin_code_simplemaps=admin_code
   )
+
+names(cities_simplemaps_pro)
 
 setwd(here("data-processed"))
 save(cities_simplemaps_pro, file = "cities_simplemaps_pro.RData")
+table(cities_simplemaps_pro$country_name_simplemaps)
+# cities_simplemaps_pro %>% 
+#   filter(country_name_simplemaps=="United States") %>% 
+#   filter(admin_name_simplemaps=="Michigan") %>% 
+#   mapview()
 
 names(cities_simplemaps_pro)
 cities_simplemaps_pro
 nrow(cities_simplemaps_pro)
+
+lookup_all_vars_simplemaps_nogeo=cities_simplemaps_pro %>% 
+  dplyr::select(city_id_simplemaps,ends_with("simplemaps")) %>% 
+  st_set_geometry(NULL)
+
+names(lookup_all_vars_simplemaps_nogeo)
+
 ## geonames (source 2)------
 #alternate might be
 #https://public.opendatasoft.com/explore/dataset/geonames-all-cities-with-a-population-1000/
 #I'm going to use the above for a few reason: looks to have been modified recently, 
 #it follows more of an open-source ethos
+#Updated October 9, 2023
 library(here)
 library(readr)
 setwd(here("data-input","cities-public-opendatasoft"))
 #Note the use of read_delim() instead of read_csv()
-stringr::str_split
 cities_geonames = readr::read_delim(
   "geonames-all-cities-with-a-population-1000.csv", 
   delim=";") %>% 
@@ -281,24 +295,35 @@ cities_geonames = readr::read_delim(
     city_population_geonames = `Population`,
     city_elevation_geonames = `Elevation`,
     city_date_modified_geonames= `Modification date`,
-    city_name_accents_geonames = `Name`#with possible accents per local name
+    city_name_accents_geonames = `Name`,#with possible accents per local name
+    admin1_code_geonames=`Admin1 Code`,
+    admin2_code_geonames=`Admin2 Code`
+
   ) %>% 
   st_as_sf(coords = c("lng", "lat"), crs = 4326) %>% 
-  #Now only pick some of those to use
-  dplyr::select(geoname_id, starts_with("city"), contains("_name")) %>% 
+  dplyr::select(geoname_id, contains("geoname")) %>% 
   arrange(desc(city_population_geonames))
 
 setwd(here("data-processed"))
 save(cities_geonames, file = "cities_geonames.RData")
 
-nrow(cities_geonames)
+nrow(cities_geonames)#141121 on Oct 9, 2023
 names(cities_geonames)
 # cities_geonames %>% View()
 cities_geonames %>%
   filter(city_population_geonames>1000000) %>%
   mapview()
 
+cities_geonames %>% 
+  filter(country_name_geonames=="United States") %>% 
+  View()
 
+#lookup for all geonames vars from the id
+lookup_all_vars_geonames_nogeo=cities_geonames %>% 
+  st_set_geometry(NULL) 
+
+lookup_all_vars_geonames_nogeo %>% 
+  filter(country_name_geonames=="United States")
 
 # lookup for city population
 lookup_city_id_city_population_geonames=cities_geonames %>% 
@@ -319,7 +344,7 @@ lookup_geoname_id_country_name = cities_geonames %>%
 
 
 
-# Read City of Chicago data for example
+# Read City of Chicago data for example-----
 library(sf)
 library(here)
 setwd(here("data-input"))

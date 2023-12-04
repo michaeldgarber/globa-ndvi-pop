@@ -91,6 +91,9 @@ countries_joined_with_un_pop_deaths_pared_nogeo = countries_joined_with_un_pop_d
   st_set_geometry(NULL) %>% 
   dplyr::as_tibble()
 
+save(countries_joined_with_un_pop_deaths_pared_nogeo,
+     file="countries_joined_with_un_pop_deaths_pared_nogeo.RData")
+
 
 # Restrict to USA for some analyses------
 countries_joined_with_un_pop_deaths_pared_usa = countries_joined_with_un_pop_deaths %>% 

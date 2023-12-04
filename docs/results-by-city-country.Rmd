@@ -1,0 +1,45 @@
+---
+title: "HIA results by urban area and country"
+author: "Michael D Garber"
+date: "`r Sys.Date()`"
+output:
+  bookdown::html_document2:
+    toc: true
+    toc_float: true
+    toc_depth: 4
+---
+
+# By urban area
+Testing if the knitr kable functions works to create super long tables.
+```{r, eval=T, echo=F,warning=FALSE, message=F}
+library(here)
+library(tidyverse)
+setwd(here("data-processed"))
+load("hia_summary_gub.RData")
+
+#people suggest DT for interactive tables
+#https://stackoverflow.com/questions/27120002/is-it-possible-to-have-sortable-interactive-table-in-rmarkdown
+#names(hia_summary_gub)
+hia_summary_gub %>% 
+  dplyr::select(city_name_admin_code_country_name,n_d_prev_per_1k_pop_pt) %>% 
+  arrange(desc(n_d_prev_per_1k_pop_pt)) %>% 
+  #Note you can change row names
+#  https://rstudio.github.io/DT/
+  DT::datatable() #trying this instead..
+```
+
+# By country
+```{r, eval=T, echo=F,warning=FALSE, message=F}
+setwd(here("data-processed"))
+load("hia_summary_country.RData")
+
+#people suggest DT for interactive tables
+#https://stackoverflow.com/questions/27120002/is-it-possible-to-have-sortable-interactive-table-in-rmarkdown
+#names(hia_summary_gub)
+hia_summary_country %>% 
+  dplyr::select(country_name_en,n_d_prev_per_1k_pop_pt) %>% 
+  arrange(desc(n_d_prev_per_1k_pop_pt)) %>% 
+  #Note you can change row names
+#  https://rstudio.github.io/DT/
+  DT::datatable() #trying this instead..
+```
