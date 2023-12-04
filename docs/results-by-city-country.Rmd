@@ -10,7 +10,6 @@ output:
 ---
 
 # By urban area
-Testing if the knitr kable functions works to create super long tables.
 ```{r, eval=T, echo=F,warning=FALSE, message=F}
 library(here)
 library(tidyverse)
@@ -21,11 +20,12 @@ load("hia_summary_gub.RData")
 #https://stackoverflow.com/questions/27120002/is-it-possible-to-have-sortable-interactive-table-in-rmarkdown
 #names(hia_summary_gub)
 hia_summary_gub %>% 
-  dplyr::select(city_name_admin_code_country_name,n_d_prev_per_1k_pop_pt) %>% 
-  arrange(desc(n_d_prev_per_1k_pop_pt)) %>% 
-  #Note you can change row names
+  dplyr::select(city_name_admin_code_country_name,n_d_prev_per_100k_pop_pt) %>% 
+  arrange(desc(n_d_prev_per_100k_pop_pt)) %>% 
+  #Note column names can be changed
 #  https://rstudio.github.io/DT/
-  DT::datatable() #trying this instead..
+  DT::datatable(
+    colnames = c("Urban area name", "Deaths prevented per 100k adults 20+")) 
 ```
 
 # By country
@@ -37,9 +37,10 @@ load("hia_summary_country.RData")
 #https://stackoverflow.com/questions/27120002/is-it-possible-to-have-sortable-interactive-table-in-rmarkdown
 #names(hia_summary_gub)
 hia_summary_country %>% 
-  dplyr::select(country_name_en,n_d_prev_per_1k_pop_pt) %>% 
-  arrange(desc(n_d_prev_per_1k_pop_pt)) %>% 
+  dplyr::select(country_name_en,n_d_prev_per_100k_pop_pt) %>% 
+  arrange(desc(n_d_prev_per_100k_pop_pt)) %>% 
   #Note you can change row names
 #  https://rstudio.github.io/DT/
-  DT::datatable() #trying this instead..
+  DT::datatable(
+    colnames = c("Country name", "Deaths prevented per 100k adults 20+")) 
 ```
