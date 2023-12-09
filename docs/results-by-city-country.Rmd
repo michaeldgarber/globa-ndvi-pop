@@ -10,6 +10,7 @@ output:
 ---
 
 # By urban area
+Ranked in descending order by age-standardized prevented mortality rate
 ```{r, eval=T, echo=F,warning=FALSE, message=F}
 library(here)
 library(tidyverse)
@@ -20,15 +21,24 @@ load("hia_summary_gub.RData")
 #https://stackoverflow.com/questions/27120002/is-it-possible-to-have-sortable-interactive-table-in-rmarkdown
 #names(hia_summary_gub)
 hia_summary_gub %>% 
-  dplyr::select(city_name_admin_code_country_name,n_d_prev_per_100k_pop_pt) %>% 
-  arrange(desc(n_d_prev_per_100k_pop_pt)) %>% 
+  dplyr::select(
+    city_name_admin_code_country_name,
+                starts_with("n_d_prev_std_per_100k_pop")
+  ) %>% 
+  arrange(desc(n_d_prev_std_per_100k_pop_pt)) %>% 
   #Note column names can be changed
 #  https://rstudio.github.io/DT/
   DT::datatable(
-    colnames = c("Urban area name", "Deaths prevented per 100k adults 20+")) 
+    colnames = c(
+      "Urban area name", 
+      "Age-standardized deaths prevented per 100k adults 20+",
+      "Lower 95% uncertainty limit",
+      "Upper 95% uncertainty limit")
+    ) 
 ```
 
 # By country
+Ranked in descending order by age-standardized prevented mortality rate
 ```{r, eval=T, echo=F,warning=FALSE, message=F}
 setwd(here("data-processed"))
 load("hia_summary_country.RData")
@@ -37,10 +47,17 @@ load("hia_summary_country.RData")
 #https://stackoverflow.com/questions/27120002/is-it-possible-to-have-sortable-interactive-table-in-rmarkdown
 #names(hia_summary_gub)
 hia_summary_country %>% 
-  dplyr::select(country_name_en,n_d_prev_per_100k_pop_pt) %>% 
-  arrange(desc(n_d_prev_per_100k_pop_pt)) %>% 
+  dplyr::select(country_name_en,
+                starts_with("n_d_prev_std_per_100k_pop")
+  ) %>% 
+  arrange(desc(n_d_prev_std_per_100k_pop_pt)) %>% 
   #Note you can change row names
 #  https://rstudio.github.io/DT/
   DT::datatable(
-    colnames = c("Country name", "Deaths prevented per 100k adults 20+")) 
+    colnames = c(
+      "Urban area name", 
+      "Age-standardized deaths prevented per 100k adults 20+",
+      "Lower 95% uncertainty limit",
+      "Upper 95% uncertainty limit")
+    ) 
 ```
