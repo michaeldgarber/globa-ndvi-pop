@@ -8,6 +8,7 @@ output:
     toc_float: true
     toc_depth: 4
 ---
+Revised Jan 19, 2024 to limit to non-accidental
 
 # By urban area
 Ranked in descending order by age-standardized prevented mortality rate
@@ -23,15 +24,15 @@ load("hia_summary_gub.RData")
 hia_summary_gub %>% 
   dplyr::select(
     city_name_admin_code_country_name,
-                starts_with("n_d_prev_std_per_100k_pop")
+                starts_with("n_d_na_prev_std_who_per_100k_pop")
   ) %>% 
-  arrange(desc(n_d_prev_std_per_100k_pop_pt)) %>% 
+  arrange(desc(n_d_na_prev_std_who_per_100k_pop_pt)) %>% 
   #Note column names can be changed
 #  https://rstudio.github.io/DT/
   DT::datatable(
     colnames = c(
       "Urban area name", 
-      "Age-standardized deaths prevented per 100k adults 20+",
+      "Age-standardized non-accidental deaths prevented per 100k adults 30+",
       "Lower 95% uncertainty limit",
       "Upper 95% uncertainty limit")
     ) 
@@ -48,9 +49,9 @@ load("hia_summary_country.RData")
 #names(hia_summary_gub)
 hia_summary_country %>% 
   dplyr::select(country_name_en,
-                starts_with("n_d_prev_std_per_100k_pop")
+                starts_with("n_d_na_prev_std_who_per_100k_pop")
   ) %>% 
-  arrange(desc(n_d_prev_std_per_100k_pop_pt)) %>% 
+  arrange(desc(n_d_na_prev_std_who_per_100k_pop_pt)) %>% 
   #Note you can change row names
 #  https://rstudio.github.io/DT/
   DT::datatable(
