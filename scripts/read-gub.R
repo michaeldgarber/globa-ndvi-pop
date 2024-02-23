@@ -92,6 +92,9 @@ gub_city_name_simplemaps = gub %>%
     )
   )
 
+setwd(here("data-processed"))
+save(gub_city_name_simplemaps,file="gub_city_name_simplemaps.RData")
+
 #no geo version
 gub_city_name_simplemaps_nogeo=gub_city_name_simplemaps %>% 
   st_set_geometry(NULL) %>% 
@@ -163,8 +166,12 @@ gub_city_name_geonames = gub %>%
     )
   )
 
+setwd(here("data-processed"))
+save(gub_city_name_geonames,file="gub_city_name_geonames.RData")
 gub_city_name_geonames
 table(gub_city_name_geonames$city_name_geonames_miss)
+setwd(here("data-processed"))
+#load("gub_city_name_geonames.RData")
 gub_city_name_geonames_nogeo=gub_city_name_geonames %>% 
   st_set_geometry(NULL) %>% 
   as_tibble()
@@ -183,11 +190,16 @@ gub_city_name_geonames_nogeo %>%
 lookup_gub_geoname_id=gub_city_name_geonames_nogeo %>% 
   distinct(ORIG_FID, geoname_id)
 
+setwd(here("data-processed"))
+save(lookup_gub_geoname_id,file="lookup_gub_geoname_id.RData")
+
 #lookup for whether geonames is miss for that orig_fid
 lookup_gub_geonames_miss=gub_city_name_geonames_nogeo %>% 
   distinct(ORIG_FID, city_name_geonames_miss)
 
-lookup_gub_geonames_miss
+setwd(here("data-processed"))
+save(lookup_gub_geonames_miss,file="lookup_gub_geonames_miss.RData")
+
 ## Fill in missings with geonames data------
 #Can I fill in the missings with the geonames data?
 names(gub_city_name_simplemaps)
@@ -200,11 +212,13 @@ lookup_gub_city_name_simplemaps_miss_geonames_present=gub_city_name_simplemaps %
   dplyr::select(ORIG_FID, contains("city_name"), 
                 contains("city_id_simple"),
                 contains("geoname_id")) %>% 
-  filter(city_name_geonames_miss==0) %>% 
+  filter(city_name_geonames_miss==0)
 
+save(lookup_gub_city_name_simplemaps_miss_geonames_present,
+     file="lookup_gub_city_name_simplemaps_miss_geonames_present.RData")
 
-names(gub_city_name_simplemaps_miss_geonames_present)
-nrow(gub_city_name_simplemaps_miss_geonames_present)
+names(lookup_gub_city_name_simplemaps_miss_geonames_present)
+nrow(lookup_gub_city_name_simplemaps_miss_geonames_present)
 
 
 

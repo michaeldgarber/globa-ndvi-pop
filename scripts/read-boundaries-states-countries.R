@@ -1,13 +1,22 @@
 #Script for limiting to state boundaries and other territories
 #Rather than doing this in every script, easier to just run once
 library(tidyverse)
-library(USAboundaries)
+#library(USAboundaries)
 library(mapview)
 library(sf)
 library(here)
 
+#Jan 17, 2024: getting an alert that USAboundaries package no longer exists
+#maybe this will work?
+#https://cran.r-project.org/web/packages/USA.state.boundaries/readme/README.html
+#install.packages("USA.state.boundaries")
+library(USA.state.boundaries)
+
+# hi=USA.state.boundaries::state_boundaries_wgs84#yes this works well
+# hi %>% mapview()
 # US states----------
-state_boundaries = USAboundariesData::states_contemporary_hires 
+#Updating with USA.state.boundaries package.
+state_boundaries = USA.state.boundaries::state_boundaries_wgs84
   #actually don't use st_simplify here because it creates little slivers between the boundaries
   #when you then go to union it below
 
@@ -18,19 +27,22 @@ object.size(state_boundaries) #making file size smaller.
 #dTolerance 100:    2445472 bytes (so half the size, great)
 state_boundaries %>% mapview()
 usa_boundaries_cont_48 = state_boundaries %>% 
-  filter(name !="Alaska") %>% 
-  filter(name !="Hawaii") %>% 
-  filter(name !="Guam") %>% 
-  filter(name != "Commonwealth of the Northern Mariana Islands") %>% 
-  filter(name != "Puerto Rico") %>% 
-  filter(name != "American Samoa") %>% 
-  filter(name !="United States Virgin Islands") %>% 
+  filter(NAME !="Alaska") %>% 
+  filter(NAME !="Hawaii") %>% 
+  filter(NAME !="Guam") %>% 
+  filter(NAME != "Commonwealth of the Northern Mariana Islands") %>% 
+  filter(NAME != "Puerto Rico") %>% 
+  filter(NAME != "American Samoa") %>% 
+  filter(NAME !="United States Virgin Islands") %>% 
   mutate(cont_48=1)
 usa_boundaries_cont_48
 class(usa_boundaries_cont_48)
 
 #unary union this
+sf_use_s2(FALSE)#fixes duplicate vertex issue
 usa_boundaries_cont_48_union = usa_boundaries_cont_48 %>% 
+  st_transform(4326) %>% 
+#  st_buffer(2) %>% 
   group_by(cont_48) %>% 
   summarise(n_states_us=n()) %>% 
   ungroup() %>% 
@@ -41,11 +53,11 @@ class(usa_boundaries_cont_48)
 nrow(usa_boundaries_cont_48)
 usa_boundaries_cont_48_union %>% mapview()
 colorado_boundary = usa_boundaries_cont_48 %>% 
-  filter(name == "Colorado")
+  filter(NAME == "Colorado")
 michigan_boundary = state_boundaries %>% 
-  filter(name == "Michigan")
+  filter(NAME == "Michigan")
 georgia_boundary = state_boundaries %>% 
-  filter(name == "Georgia")
+  filter(NAME == "Georgia")
 
 # Country boundaries-----
 #There are lots of packages that have data on country boundaries.
@@ -59,7 +71,10 @@ library(rnaturalearth)
 #install.packages("rnaturalearthdata")#needed for higher resolution country
                                       #boundaries
 library(rnaturalearthdata)
-library(rnaturalearthhires)#needed for extra high resolution country boundaries
+#install.packages("rnaturalearthhires")# not available I guess?
+
+#devtools::install_github("ropensci/rnaturalearthhires")
+#library(rnaturalearthhires)#needed for extra high resolution country boundaries
 library(sf)
 library(mapview)
 library(tidyverse)

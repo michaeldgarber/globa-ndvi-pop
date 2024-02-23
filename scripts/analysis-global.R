@@ -12,7 +12,6 @@ library(mapview)
 library(tidyverse)
 library(here)
 library(sf)
-setwd(here("data-processed"))
 source(here("scripts", "analysis-functions.R"))
 source(here("scripts", "read-boundaries-states-countries.R"))#load some lookups
 
@@ -20,6 +19,7 @@ source(here("scripts", "read-boundaries-states-countries.R"))#load some lookups
 #dataset, see
 #scripts/final-data-combining.R
 
+setwd(here("data-processed"))
 load("pop_ndvi_gub_biome_tib_gub_not_miss.RData")
 object.size(pop_ndvi_gub_biome_tib_gub_not_miss) 
 nrow(pop_ndvi_gub_biome_tib_gub_not_miss)
@@ -38,9 +38,9 @@ pop_ndvi_gub_biome_tib_gub_not_miss %>%
 #7550
 7550/nrow(pop_ndvi_gub_biome_tib_gub_not_miss)
 
-pop_ndvi_gub_biome_tib_gub_not_miss %>% 
-  distinct(country_name_en) %>% 
-  View()
+# pop_ndvi_gub_biome_tib_gub_not_miss %>% 
+#   distinct(country_name_en) %>% 
+#   View()
 
 
 
@@ -89,7 +89,7 @@ mean(c(total_world_pop_per_ls$pop_cat_min_val,
 
 #Nov 19 2023: here to calculate the ratio of UN pop vs Landscan upper bound
 #Load this lookup, created in ~read-united-nations-gbd-data.R
-lookup_country_name_en_pop_total_absolute
+lookup_country_name_en_pop_total_un
 names(pop_ndvi_gub_biome_tib_gub_not_miss)
 # pop_ndvi_gub_biome_tib_gub_not_miss %>% 
 #   distinct(country_name_en) %>% 
@@ -106,7 +106,7 @@ country_pop_ls_un=pop_ndvi_gub_biome_tib_gub_not_miss %>%
   ) %>% 
   ungroup() %>% 
   #Link the UN estimate by country
-  left_join(lookup_country_name_en_pop_total_absolute,by="country_name_en") %>% 
+  left_join(lookup_country_name_en_pop_total_un,by="country_name_en") %>% 
   #now estimate ratios: at the country level,
   #what's the ratio of what UN says vs what LandScan values added up are?
   mutate(
@@ -114,9 +114,9 @@ country_pop_ls_un=pop_ndvi_gub_biome_tib_gub_not_miss %>%
     #Makes the most sense to express the ratio as UN vs the Landscan.
     #That way, I can simply apply this ratio as a weight to the estimates.
     
-    ratio_pop_un_v_pop_cat_mean_ls=pop_total_absolute/pop_cat_mean_val_country_name_en,
-    ratio_pop_un_v_pop_cat_max_ls=pop_total_absolute/pop_cat_max_val_country_name_en,
-    ratio_pop_un_v_pop_cat_min_ls=pop_total_absolute/pop_cat_min_val_country_name_en
+    ratio_pop_un_v_pop_cat_mean_ls=pop_total_un/pop_cat_mean_val_country_name_en,
+    ratio_pop_un_v_pop_cat_max_ls=pop_total_un/pop_cat_max_val_country_name_en,
+    ratio_pop_un_v_pop_cat_min_ls=pop_total_un/pop_cat_min_val_country_name_en
   )
 
 #check the distribution of those ratios
@@ -170,7 +170,7 @@ country_pop_ls_un_exclude_top=pop_ndvi_gub_biome_tib_gub_not_miss %>%
   ) %>% 
   ungroup() %>% 
   #Link the UN estimate by country
-  left_join(lookup_country_name_en_pop_total_absolute,by="country_name_en") %>% 
+  left_join(lookup_country_name_en_pop_total_un,by="country_name_en") %>% 
   #now estimate ratios: at the country level,
   #what's the ratio of what UN says vs what LandScan values added up are?
   mutate(
@@ -178,17 +178,17 @@ country_pop_ls_un_exclude_top=pop_ndvi_gub_biome_tib_gub_not_miss %>%
     #Makes the most sense to express the ratio as UN vs the Landscan.
     #That way, I can simply apply this ratio as a weight to the estimates.
     
-    ratio_pop_un_v_pop_cat_1_7_mean_ls=pop_total_absolute/pop_cat_1_7_mean_val_country_name_en,
-    ratio_pop_un_v_pop_cat_1_7_max_ls=pop_total_absolute/pop_cat_1_7_max_val_country_name_en,
-    ratio_pop_un_v_pop_cat_1_7_min_ls=pop_total_absolute/pop_cat_1_7_min_val_country_name_en
+    ratio_pop_un_v_pop_cat_1_7_mean_ls=pop_total_un/pop_cat_1_7_mean_val_country_name_en,
+    ratio_pop_un_v_pop_cat_1_7_max_ls=pop_total_un/pop_cat_1_7_max_val_country_name_en,
+    ratio_pop_un_v_pop_cat_1_7_min_ls=pop_total_un/pop_cat_1_7_min_val_country_name_en
   )
 
 
 
 #check again
-summary(country_pop_ls_un_exclude_top$ratio_pop_un_v_pop_cat_mean_ls)
-country_pop_ls_un %>% 
-  ggplot(aes(x=ratio_pop_un_v_pop_cat_mean_ls))+
+summary(country_pop_ls_un_exclude_top$ratio_pop_un_v_pop_cat_1_7_mean_ls)
+country_pop_ls_un_exclude_top %>% 
+  ggplot(aes(x=ratio_pop_un_v_pop_cat_1_7_mean_ls))+
   geom_histogram()
 
 #okay, so the culprit really is this top category, because
@@ -228,7 +228,7 @@ pop_cat_8_corrected_country_name=country_pop_ls_un_top_only %>%
   left_join(country_pop_ls_un_exclude_top_for_join,by="country_name_en") %>% 
   mutate(
     #Now define the correction factor following algebra above.
-    pop_cat_8_max_wt=(pop_total_absolute-pop_cat_1_7_max_val_country_name_en)/
+    pop_cat_8_max_wt=(pop_total_un-pop_cat_1_7_max_val_country_name_en)/
       pop_cat_8_max_val_country_name_en
   )
 
@@ -264,8 +264,15 @@ source(here("scripts", "read-boundaries-states-countries.R"))#load some lookups
 #whereas this needs to be at the city level
 names(pop_ndvi_gub_biome_tib_gub_not_miss)
 #note this isn't the scaled value.
+#Rather than loading all of these lookups, it might be simpler just to say:
+#source(here("scripts", "read-gub.R")) #don't. it takes a long time.
+setwd(here("data-processed"))
 load("lookup_gub_area_km2.RData")
-
+load("lookup_gub_city_id_simplemaps.RData")
+load("lookup_gub_simplemaps_miss.RData")
+load("lookup_orig_fid_country_name_en.RData")
+load("lookup_gub_geoname_id.RData")
+load("lookup_gub_geonames_miss.RData")
 #Oct 7, 2023: in this code, we can also create an indicator for
 #whether there is a duplicate city name
 #I had lots of analysis steps in the HIA, but many ought to be done here
@@ -364,7 +371,9 @@ lookup_gub_several_vars = pop_ndvi_gub_biome_tib_gub_not_miss %>%
                 dig.lab = 9#avoid scientific notation
                            )
     )
-  
+
+setwd(here("data-processed"))
+save(lookup_gub_several_vars,file="lookup_gub_several_vars.RData")
 #Check on pop var
 lookup_gub_several_vars %>% 
   dplyr::select(ORIG_FID, starts_with("city_popul")) %>% 
@@ -379,9 +388,9 @@ lookup_gub_several_vars %>%
 #   View()
 
 names(lookup_gub_several_vars)
-lookup_gub_several_vars %>% 
-  distinct(country_name_en) %>% 
-  View()
+# lookup_gub_several_vars %>% 
+#   distinct(country_name_en) %>% 
+#   View()
 table(lookup_gub_several_vars$country_name_en)
 
 #how many GUBs are missing city names from both sources?
@@ -544,7 +553,7 @@ lookup_gub_biome_top   %>%
 
 #save in case I use in other code
 setwd(here("data-processed"))
-save(lookup_gub_biome_top , file = "lookup_gub_biome_top .RData")
+save(lookup_gub_biome_top, file = "lookup_gub_biome_top.RData")
 #There are apparently some cities that don't have a biome under this method.
 lookup_gub_biome_top  %>% 
   filter(is.na(biome_name_top)==TRUE) %>% 
@@ -589,11 +598,15 @@ names(lookup_gub_several_vars_wrangle)
 names(pop_ndvi_gub_biome_tib_gub_not_miss)#note we don't have a measure of area
 #can just assume it's one, though?
 load("countries_joined_with_un_pop_deaths_pared_nogeo.RData")
+names(countries_joined_with_un_pop_deaths_pared_nogeo)
 source(here("scripts", "rojas_green_space_drf.R")) #load dose-response info if needed
 pop_ndvi_gub_biome_tib = pop_ndvi_gub_biome_tib_gub_not_miss %>% 
-  bind_cols(drf_deaths) %>%   #add DRF to every row (regardless of country)
+  bind_cols(rr_ac) %>%   #add DRF to every row (regardless of country)
+  #this adds the RR corresponding to non-accidental deaths
+  #as well as the NDVI increment
+  bind_cols(rr_na) %>% 
   #add number of deaths to every row (would be a left_join for more countries)
-  #just the USA here so could use bind_cols() but using left_join() for scalability
+  #just the USA here so could use bind_cols() but using left_join() for scalibility
   left_join(countries_joined_with_un_pop_deaths_pared_nogeo, by = "country_name_en") %>% 
   mutate(pixel_id = row_number()) %>% #row number for a given pixel
   mutate(area_km2_pixel=1) %>% #assume it's one I suppose Oct 10, 2023
@@ -601,7 +614,7 @@ pop_ndvi_gub_biome_tib = pop_ndvi_gub_biome_tib_gub_not_miss %>%
   filter(ndvi_2019>0) %>% #exclude NDVI below 0 (water)
   #link in the city-biome lookup so that I can impute biomes
   #for pixels with missing biomes
-  left_join(lookup_gub_biome_top , by = "ORIG_FID") %>% 
+  left_join(lookup_gub_biome_top, by = "ORIG_FID") %>% 
   #Feb 21 2023: now, if a given pixel is missing a biome, set it to the value
   #of the most common biome for that city
   
@@ -615,6 +628,7 @@ pop_ndvi_gub_biome_tib = pop_ndvi_gub_biome_tib_gub_not_miss %>%
     
     #recalculate the mean based on this weight and make
     #changes in the analysis function accordingly
+    #Note from Jan 17, 2024: this uses UN population data. That's good.
     pop_cat_max_val_adj=pop_cat_max_val*ratio_pop_un_v_pop_cat_max_ls,
     #Now the mean can be adjusted based on that and the true min
     pop_cat_mean_val_adj=(pop_cat_max_val_adj+pop_cat_min_val)/2
@@ -630,6 +644,7 @@ pop_ndvi_gub_biome_tib = pop_ndvi_gub_biome_tib_gub_not_miss %>%
   ungroup()
 
 #Done! 
+#Updated Jan 19, 2024
 setwd(here("data-processed"))
 save(pop_ndvi_gub_biome_tib, file = "pop_ndvi_gub_biome_tib.RData")
 #load("pop_ndvi_gub_biome_tib.RData")
@@ -641,6 +656,8 @@ nrow(pop_ndvi_gub_biome_tib)#1193569 if no pop or area filter
 names(pop_ndvi_gub_biome_tib)
 object.size(pop_ndvi_gub_biome_tib) 
 table(pop_ndvi_gub_biome_tib$pop_cat_max_fac)
+table(pop_ndvi_gub_biome_tib$country_name_en)
+n_distinct(pop_ndvi_gub_biome_tib$country_name_en)
 
 
 #How many cities have more than one biome?
@@ -666,7 +683,6 @@ n_gub_w_2_or_more_biomes/n_gub
 1-(n_gub_w_2_or_more_biomes/n_gub)
 
 #Describe variation of pop. density within GUB?
-names(pop_ndvi_gub_biome_tib_gub_not_miss)
 n_pop_cat_gub = pop_ndvi_gub_biome_tib %>% 
   filter(is.na(pop_cat_1_8)==FALSE) %>% #NAs throwing error 
   filter(ndvi_2019>0) %>% #exclude NDVI below 0 (water)
@@ -681,26 +697,26 @@ summary(n_pop_cat_gub$n_pop_cat)
 # check on pt vs ll vs ul variables
 names(pop_ndvi_gub_biome_tib)
 # pop_ndvi_gub_biome_tib %>% 
-#   dplyr::select(ORIG_FID, starts_with("paf"), starts_with("n_d_prev_m")) %>% 
+#   dplyr::select(ORIG_FID, starts_with("paf"), starts_with("n_d_ac_prev_m")) %>% 
 #   slice(1:500) %>% 
 #   rowwise() %>% 
 #   #what is the min and max of the 9 attrib deaths var?
 #   mutate(
-#     n_d_prev_min_across_vars = min(
-#       n_d_prev_mean_pt, n_d_prev_min_pt, n_d_prev_max_pt,
-#       n_d_prev_mean_ll, n_d_prev_min_ll, n_d_prev_max_ll,
-#       n_d_prev_mean_ul, n_d_prev_min_ul, n_d_prev_max_ul, na.rm=TRUE)
+#     n_d_ac_prev_min_across_vars = min(
+#       n_d_ac_prev_mean_pt, n_d_ac_prev_min_pt, n_d_ac_prev_max_pt,
+#       n_d_ac_prev_mean_ll, n_d_ac_prev_min_ll, n_d_ac_prev_max_ll,
+#       n_d_ac_prev_mean_ul, n_d_ac_prev_min_ul, n_d_ac_prev_max_ul, na.rm=TRUE)
 #     ,
-#   n_d_prev_max_across_vars = max(
-#     n_d_prev_mean_pt, n_d_prev_min_pt, n_d_prev_max_pt,
-#     n_d_prev_mean_ll, n_d_prev_min_ll, n_d_prev_max_ll,
-#     n_d_prev_mean_ul, n_d_prev_min_ul, n_d_prev_max_ul, na.rm=TRUE)
+#   n_d_ac_prev_max_across_vars = max(
+#     n_d_ac_prev_mean_pt, n_d_ac_prev_min_pt, n_d_ac_prev_max_pt,
+#     n_d_ac_prev_mean_ll, n_d_ac_prev_min_ll, n_d_ac_prev_max_ll,
+#     n_d_ac_prev_mean_ul, n_d_ac_prev_min_ul, n_d_ac_prev_max_ul, na.rm=TRUE)
 #   ) %>% 
 #   View()
 
-      #okay, n_d_prev_min_ul is the overall min.
+      #okay, n_d_ac_prev_min_ul is the overall min.
       #That makes sense because _ul corresponds to the bound closer to 1 in the risk ratio
-      #That means n_d_prev_max_ll should correspond to the overall max. Yes.
+      #That means n_d_ac_prev_max_ll should correspond to the overall max. Yes.
 
 #check the factor version of the scaled population
 

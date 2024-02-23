@@ -29,9 +29,10 @@ pop_ndvi_gub_biome
 setwd(here("data-processed"))
 source(here("scripts", "rojas_green_space_drf.R")) #load dose-response info
 drf_deaths
-#get the merged UN data
+#get the merged UN - GBD data
 source(here("scripts", "merge-un-countries-geo.R")) 
 countries_joined_with_un_pop_deaths_pared_nogeo
+names(countries_joined_with_un_pop_deaths_pared_nogeo)
 
 ## Run functions----
 #Feb 21, 2023:
@@ -223,4 +224,7 @@ pop_ndvi_gub_biome_tib_gub_not_miss %>%
   View()
 
 #Dec 1, 2023: Cut it here. For a continuation of this, see ~analysis-global.
+
+names(pop_ndvi_gub_biome_tib_gub_not_miss)
+## Filter to US only for use in the Chicago demo----
 

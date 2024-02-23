@@ -1,5 +1,5 @@
 ---
-title: "HIA results by urban area and country"
+title: "Urban greening results by urban area and country"
 author: "Michael D Garber"
 date: "`r Sys.Date()`"
 output:
@@ -8,7 +8,6 @@ output:
     toc_float: true
     toc_depth: 4
 ---
-Revised Jan 19, 2024 to limit to non-accidental
 
 # By urban area
 Ranked in descending order by age-standardized prevented mortality rate
@@ -22,11 +21,17 @@ load("hia_summary_gub.RData")
 #https://stackoverflow.com/questions/27120002/is-it-possible-to-have-sortable-interactive-table-in-rmarkdown
 #names(hia_summary_gub)
 hia_summary_gub %>% 
-  dplyr::select(
-    city_name_admin_code_country_name,
-                starts_with("n_d_na_prev_std_who_per_100k_pop")
+  mutate(
+      #Round these before passing through...will be easier than trying to round using data table
+    #0 decimals is good.
+      n_d_na_prev_std_who_per_100k_pop_pt_round=round(n_d_na_prev_std_who_per_100k_pop_pt),
+      n_d_na_prev_std_who_per_100k_min_over_9_round=round(n_d_na_prev_std_who_per_100k_pop_min_over_9),
+      n_d_na_prev_std_who_per_100k_max_over_9_round=round(n_d_na_prev_std_who_per_100k_pop_max_over_9)
   ) %>% 
-  arrange(desc(n_d_na_prev_std_who_per_100k_pop_pt)) %>% 
+  dplyr::select(
+    city_name_admin_code_country_name,ends_with("round")
+  ) %>% 
+  arrange(desc(n_d_na_prev_std_who_per_100k_pop_pt_round)) %>% 
   #Note column names can be changed
 #  https://rstudio.github.io/DT/
   DT::datatable(
@@ -48,10 +53,14 @@ load("hia_summary_country.RData")
 #https://stackoverflow.com/questions/27120002/is-it-possible-to-have-sortable-interactive-table-in-rmarkdown
 #names(hia_summary_gub)
 hia_summary_country %>% 
-  dplyr::select(country_name_en,
-                starts_with("n_d_na_prev_std_who_per_100k_pop")
+    mutate(
+        #Round these here as above
+      n_d_na_prev_std_who_per_100k_pop_pt_round=round(n_d_na_prev_std_who_per_100k_pop_pt),
+      n_d_na_prev_std_who_per_100k_min_over_9_round=round(n_d_na_prev_std_who_per_100k_pop_min_over_9),
+      n_d_na_prev_std_who_per_100k_max_over_9_round=round(n_d_na_prev_std_who_per_100k_pop_max_over_9)
   ) %>% 
-  arrange(desc(n_d_na_prev_std_who_per_100k_pop_pt)) %>% 
+  dplyr::select(country_name_en, ends_with("round")) %>% 
+  arrange(desc(n_d_na_prev_std_who_per_100k_pop_pt_round)) %>% 
   #Note you can change row names
 #  https://rstudio.github.io/DT/
   DT::datatable(

@@ -2,6 +2,7 @@
 #March 10th, 2023 
 #Breaking this off from the main script so that I can source it
 #Rebvised Sep 29, 2023 - working on figures for main text
+#Revising Jan 19, 2024 to focus presentation on non-accidental mortality
 
 library(terra)
 library(tidyterra)
@@ -34,6 +35,7 @@ load("lookup_gub_pop_area.RData")
 
 names(lookup_gub_several_vars_wrangle)
 table(pop_ndvi_gub_biome_tib$ndvi_tertile)
+names(pop_ndvi_gub_biome_tib)
 hia_summary_gub= pop_ndvi_gub_biome_tib %>% 
   filter(ndvi_tertile<3) %>%   #exclude top NDVI tertile throughout
   group_by(ORIG_FID) %>% 
@@ -48,23 +50,27 @@ hia_summary_gub= pop_ndvi_gub_biome_tib %>%
   #make city name a factor ranked by deaths prevented.
   #Do so here rather than in the ggplot code
   #Base this on the city, country text as it will be graphed
-    city_name_country_name_ranked_by_n_d_prev_per_pop_int=as.factor(
+    #Dec 5, 2023: revising ranked factors
+    #Jan 17, 2024: updated with the GBDn_d_na_prev_std_who_per_100k_pop_pt
+    #could consider ranking by the WHO version as well
+    city_name_country_name_ranked_by_n_d_na_prev_per_pop_int=as.factor(
       city_name_country_name),
-    city_name_country_name_ranked_by_n_d_prev_per_pop=fct_reorder(
-      city_name_country_name_ranked_by_n_d_prev_per_pop_int,
-      n_d_prev_per_100k_pop_pt,
+    city_name_country_name_ranked_by_n_d_na_prev_per_pop=fct_reorder(
+      city_name_country_name_ranked_by_n_d_na_prev_per_pop_int,
+      #update with the _gbd suffix
+      n_d_na_prev_std_who_per_100k_pop_pt,
       .na_rm=TRUE),#note unusual spelling
   
   #and one including the admin code, but only if dupe city-name-country-name
-  city_name_country_name_admin_if_dupe_ranked_by_n_d_prev_per_pop_int=as.factor(
+  city_name_country_name_admin_if_dupe_ranked_by_n_d_na_prev_per_pop_int=as.factor(
     city_name_country_name_admin_if_dupe),
-  city_name_country_name_admin_if_dupe_ranked_by_n_d_prev_per_pop=fct_reorder(
-    city_name_country_name_admin_if_dupe_ranked_by_n_d_prev_per_pop_int,
-    n_d_prev_per_100k_pop_pt,
+  city_name_country_name_admin_if_dupe_ranked_by_n_d_na_prev_per_pop=fct_reorder(
+    city_name_country_name_admin_if_dupe_ranked_by_n_d_na_prev_per_pop_int,
+    n_d_na_prev_std_who_per_100k_pop_pt,
     .na_rm=TRUE)
   ) %>% 
   #try also a row number sorting
-  arrange(desc(n_d_prev_per_100k_pop_pt)) %>% 
+  arrange(desc(n_d_na_prev_std_who_per_100k_pop_pt)) %>% 
   mutate(
     order=row_number()
   )
@@ -76,13 +82,19 @@ save(hia_summary_gub,file="hia_summary_gub.RData")
 nrow(hia_summary_gub)
 n_distinct(hia_summary_gub$ORIG_FID)
 names(hia_summary_gub)
-# hia_summary_gub %>% 
-#   arrange(desc(n_d_prev_per_1k_pop_pt)) %>% 
-#   dplyr::select(ORIG_FID, starts_with("city_name"), 
-#                 ends_with("simplemaps"),
-#                 ends_with("geonames"),
-#                 starts_with("n_d_prev_per_1k_pop_pt")) %>% 
-#   View()
+hia_summary_gub %>%
+  arrange(desc(n_d_na_prev_std_who_per_100k_pop_pt)) %>%
+  dplyr::select(
+    ORIG_FID, starts_with("city_name"),
+    ends_with("simplemaps"),
+    ends_with("geonames"),
+    starts_with("n_d_ac_prev_std_gdb_per_100k"),
+    starts_with("n_d_ac_prev_std_who_per_100k"),
+    starts_with("n_d_ac_prev_crude_gbd_per_100k"),
+    starts_with("n_d_ac_prev_crude_who_per_100k")
+                ) %>% 
+  View()
+
 
 #which country name do I prefer?
 # hia_summary_gub %>% 
@@ -201,28 +213,37 @@ setwd(here("data-processed"))
 save(hia_summary_gub_1mil_plus, file="hia_summary_gub_1mil_plus.RData")
 
 ## Figures: cities--------
+#Revised Jan 19, 2024 using non-accidental in place of all-cause
 ###Figure of top n cities by deaths prevented----
 #make a function as I repeat this ggplot code several times
+names(hia_summary_gub)
+hia_summary_gub %>% 
+  mutate(dummy=1) %>% 
+  group_by(dummy) %>% 
+  summarise(
+  max_n_d_na_prev_std_who_per_100k_pop_max_over_9=max(n_d_na_prev_std_who_per_100k_pop_max_over_9,na.rm=T)
+  )
+max(hia_summary_gub$n_d_na_prev_std_who_per_100k_pop_max_over_9)
 ggplot_top_n_gub_by_n_death_prev_per_100k = function(df){
   df %>% 
-    ggplot(aes(x=n_d_prev_per_100k_pop_pt,
-               y=city_name_country_name_admin_if_dupe_ranked_by_n_d_prev_per_pop,
-               #             y=city_name_country_name_ranked_by_n_d_prev_per_pop
+    ggplot(aes(x=n_d_na_prev_std_who_per_100k_pop_pt,
+               y=city_name_country_name_admin_if_dupe_ranked_by_n_d_na_prev_per_pop,
+               #             y=city_name_country_name_ranked_by_n_d_na_prev_per_pop
     ))+
     geom_point(stroke=0,size=.5,color="transparent")+
-    geom_pointrange(aes(xmin=n_d_prev_per_100k_pop_min_over_9,
-                        xmax=n_d_prev_per_100k_pop_max_over_9))+
-    scale_x_continuous(limits=c(0,200))+
+    geom_pointrange(aes(xmin=n_d_na_prev_std_who_per_100k_pop_min_over_9,
+                        xmax=n_d_na_prev_std_who_per_100k_pop_max_over_9))+
+    scale_x_continuous(limits=c(0,250))+
     labs(
-      x="Estimated annual\npremature deaths\n prevented per\n 100,000 population\n(adults 20+)",
+      x="Age-standardized\nnon-accidental death rate\n prevented\nper 100,000 population\n(adults 30+)",
       y="Largest city in GUB")+
     theme_bw(base_size = 12)
 }
 names(hia_summary_gub)
 hia_summary_gub %>% 
   filter(is.na(city_name_either_source)==F) %>% 
-  filter(is.na(n_d_prev_per_100k_pop_pt)==F) %>% 
-  arrange(desc(n_d_prev_per_100k_pop_pt)) %>% 
+  filter(is.na(n_d_na_prev_std_who_per_100k_pop_pt)==F) %>% 
+  arrange(desc(n_d_na_prev_std_who_per_100k_pop_pt)) %>% 
   slice(1:120) %>% #take top n
   ggplot_top_n_gub_by_n_death_prev_per_100k()
 
@@ -232,8 +253,8 @@ hia_summary_gub %>%
 table(hia_summary_gub$pop_cat_breaks_gub_aue_ls)
 hia_summary_gub %>% 
   filter(is.na(city_name_either_source)==F) %>% 
-  filter(is.na(n_d_prev_per_100k_pop_pt)==F) %>% 
-  arrange(desc(n_d_prev_per_100k_pop_pt)) %>% 
+  filter(is.na(n_d_na_prev_std_who_per_100k_pop_pt)==F) %>% 
+  arrange(desc(n_d_na_prev_std_who_per_100k_pop_pt)) %>% 
   slice(1:100) %>% #take top n
   ggplot_top_n_gub_by_n_death_prev_per_100k()+
   facet_grid(
@@ -252,91 +273,128 @@ pop_cat_breaks_gub_aue_ls_levels$pop_cat_breaks_gub_aue_ls[2]
 pop_cat_breaks_gub_aue_ls_levels$pop_cat_breaks_gub_aue_ls[3]
 pop_cat_breaks_gub_aue_ls_levels$pop_cat_breaks_gub_aue_ls[4]
 pop_cat_breaks_gub_aue_ls_levels$pop_cat_breaks_gub_aue_ls[5]
+
+#### Pop dens cat 5-------
 hia_summary_gub %>% 
-  filter(is.na(n_d_prev_per_100k_pop_pt)==F) %>% 
+  filter(is.na(n_d_na_prev_std_who_per_100k_pop_pt)==F) %>% 
   #filter to the first level, second level, etc.
   filter(pop_cat_breaks_gub_aue_ls==pop_cat_breaks_gub_aue_ls_levels$pop_cat_breaks_gub_aue_ls[5]) %>% 
-  arrange(desc(n_d_prev_per_100k_pop_pt)) %>% 
+  arrange(desc(n_d_na_prev_std_who_per_100k_pop_pt)) %>% 
   slice(1:50) %>% #take top n
   ggplot_top_n_gub_by_n_death_prev_per_100k()
 
+# comment Dec 7, 2023: seem to have lost CIs for some cities. Why?
 #save for a panel plot. make it fairly narrow
+#ah - because the max x-axis value was too low.
 setwd(here("plots"))
-ggsave("plot_n_d_prev_per_100k_x_city_pop_cat_5.png", height=10, width=5)
+ggsave("plot_n_d_na_prev_std_per_100k_x_city_pop_cat_5.png", height=10, width=5)
+
+names(hia_summary_gub)
+hia_summary_gub %>% 
+  filter(is.na(n_d_na_prev_std_who_per_100k_pop_pt)==F) %>% 
+  #filter to the first level, second level, etc.
+  filter(pop_cat_breaks_gub_aue_ls==pop_cat_breaks_gub_aue_ls_levels$pop_cat_breaks_gub_aue_ls[5]) %>% 
+  arrange(desc(n_d_na_prev_std_who_per_100k_pop_pt)) %>% 
+  slice(1:50) %>% #take top n
+  dplyr::select(
+    city_name_country_name_admin_if_dupe_ranked_by_n_d_na_prev_per_pop,
+    contains("n_d_na_prev_std_who_per_100k_pop")
+  ) %>% 
+  print(n=20)
+
+
+
+
+
+#### Pop dens cat 4-------
+hia_summary_gub %>% 
+  filter(is.na(n_d_na_prev_std_who_per_100k_pop_pt)==F) %>% 
+  filter(pop_cat_breaks_gub_aue_ls==pop_cat_breaks_gub_aue_ls_levels$pop_cat_breaks_gub_aue_ls[4]) %>% 
+  arrange(desc(n_d_na_prev_std_who_per_100k_pop_pt)) %>% 
+  slice(1:50) %>% #take top n
+  ggplot_top_n_gub_by_n_death_prev_per_100k()
+
+setwd(here("plots"))
+ggsave("plot_n_d_na_prev_std_per_100k_x_city_pop_cat_4.png", height=10, width=5)
+
+hia_summary_gub %>% 
+  filter(is.na(n_d_na_prev_std_who_per_100k_pop_pt)==F) %>% 
+  #filter to the first level, second level, etc.
+  filter(pop_cat_breaks_gub_aue_ls==pop_cat_breaks_gub_aue_ls_levels$pop_cat_breaks_gub_aue_ls[4]) %>% 
+  arrange(desc(n_d_na_prev_std_who_per_100k_pop_pt)) %>% 
+  slice(1:50) %>% #take top n
+  dplyr::select(
+#    city_name_country_name_admin_if_dupe_ranked_by_n_d_na_prev_per_pop,
+    contains("n_d_na_prev_std_who_per_100k_pop")
+  ) %>% 
+  print(n=20)
+
+
+#### Pop dens cat 3-------
+hia_summary_gub %>% 
+  filter(is.na(n_d_na_prev_std_who_per_100k_pop_pt)==F) %>% 
+  filter(pop_cat_breaks_gub_aue_ls==pop_cat_breaks_gub_aue_ls_levels$pop_cat_breaks_gub_aue_ls[3]) %>% 
+  arrange(desc(n_d_na_prev_std_who_per_100k_pop_pt)) %>% 
+  slice(1:50) %>% #take top n
+  ggplot_top_n_gub_by_n_death_prev_per_100k()
+
+setwd(here("plots"))
+ggsave("plot_n_d_na_prev_std_per_100k_x_city_pop_cat_3.png", height=10, width=5)
+
+#### Pop dens cat 2-------
+hia_summary_gub %>% 
+  filter(is.na(n_d_na_prev_std_who_per_100k_pop_pt)==F) %>% 
+  filter(pop_cat_breaks_gub_aue_ls==pop_cat_breaks_gub_aue_ls_levels$pop_cat_breaks_gub_aue_ls[2]) %>% 
+  arrange(desc(n_d_na_prev_std_who_per_100k_pop_pt)) %>% 
+  slice(1:50) %>% #take top n
+  ggplot_top_n_gub_by_n_death_prev_per_100k()
+
+setwd(here("plots"))
+ggsave("plot_n_d_na_prev_std_per_100k_x_city_pop_cat_2.png", height=10, width=5)
+
+#### Pop dens cat 1-------
+hia_summary_gub %>% 
+  filter(is.na(n_d_na_prev_std_who_per_100k_pop_pt)==F) %>% 
+  filter(pop_cat_breaks_gub_aue_ls==pop_cat_breaks_gub_aue_ls_levels$pop_cat_breaks_gub_aue_ls[1]) %>% 
+  arrange(desc(n_d_na_prev_std_who_per_100k_pop_pt)) %>% 
+  slice(1:50) %>% #take top n
+  ggplot_top_n_gub_by_n_death_prev_per_100k()
+
+setwd(here("plots"))
+ggsave("plot_n_d_na_prev_std_per_100k_x_city_pop_cat_1.png", height=10, width=5)
+
 
 #### top values for in-text writing----
 names(hia_summary_gub)
 hia_summary_gub %>% 
-  filter(is.na(n_d_prev_per_100k_pop_pt)==F) %>% 
+  filter(is.na(n_d_na_prev_std_who_per_100k_pop_pt)==F) %>% 
   #filter to the first level, second level, etc.
   filter(pop_cat_breaks_gub_aue_ls==pop_cat_breaks_gub_aue_ls_levels$pop_cat_breaks_gub_aue_ls[5]) %>% 
-  arrange(desc(n_d_prev_per_100k_pop_pt)) %>% 
+  arrange(desc(n_d_na_prev_std_who_per_100k_pop_pt)) %>% 
   dplyr::select(
     ORIG_FID,
-    city_name_country_name_admin_if_dupe_ranked_by_n_d_prev_per_pop, 
-                starts_with("n_d_prev_per_100k_pop")) %>% 
+    city_name_country_name_admin_if_dupe_ranked_by_n_d_na_prev_per_pop, 
+    starts_with("n_d_na_prev_std_who_per_100k_pop")) %>% 
   View()
-
-hia_summary_gub %>% 
-  filter(is.na(n_d_prev_per_100k_pop_pt)==F) %>% 
-  filter(pop_cat_breaks_gub_aue_ls==pop_cat_breaks_gub_aue_ls_levels$pop_cat_breaks_gub_aue_ls[4]) %>% 
-  arrange(desc(n_d_prev_per_100k_pop_pt)) %>% 
-  slice(1:50) %>% #take top n
-  ggplot_top_n_gub_by_n_death_prev_per_100k()
-
-setwd(here("plots"))
-ggsave("plot_n_d_prev_per_100k_x_city_pop_cat_4.png", height=10, width=5)
-
-hia_summary_gub %>% 
-  filter(is.na(n_d_prev_per_100k_pop_pt)==F) %>% 
-  filter(pop_cat_breaks_gub_aue_ls==pop_cat_breaks_gub_aue_ls_levels$pop_cat_breaks_gub_aue_ls[3]) %>% 
-  arrange(desc(n_d_prev_per_100k_pop_pt)) %>% 
-  slice(1:50) %>% #take top n
-  ggplot_top_n_gub_by_n_death_prev_per_100k()
-
-setwd(here("plots"))
-ggsave("plot_n_d_prev_per_100k_x_city_pop_cat_3.png", height=10, width=5)
-
-hia_summary_gub %>% 
-  filter(is.na(n_d_prev_per_100k_pop_pt)==F) %>% 
-  filter(pop_cat_breaks_gub_aue_ls==pop_cat_breaks_gub_aue_ls_levels$pop_cat_breaks_gub_aue_ls[2]) %>% 
-  arrange(desc(n_d_prev_per_100k_pop_pt)) %>% 
-  slice(1:50) %>% #take top n
-  ggplot_top_n_gub_by_n_death_prev_per_100k()
-
-setwd(here("plots"))
-ggsave("plot_n_d_prev_per_100k_x_city_pop_cat_2.png", height=10, width=5)
-
-
-hia_summary_gub %>% 
-  filter(is.na(n_d_prev_per_100k_pop_pt)==F) %>% 
-  filter(pop_cat_breaks_gub_aue_ls==pop_cat_breaks_gub_aue_ls_levels$pop_cat_breaks_gub_aue_ls[1]) %>% 
-  arrange(desc(n_d_prev_per_100k_pop_pt)) %>% 
-  slice(1:50) %>% #take top n
-  ggplot_top_n_gub_by_n_death_prev_per_100k()
-
-setwd(here("plots"))
-ggsave("plot_n_d_prev_per_100k_x_city_pop_cat_1.png", height=10, width=5)
-
 
 ### Top n in US--------
 names(hia_summary_gub)
 hia_summary_gub %>% 
   filter(country_name_en=="United States of America") %>% 
   filter(is.na(city_name_either_source)==F) %>% 
-  filter(is.na(n_d_prev_per_100k_pop_pt)==F) %>% 
-  arrange(desc(n_d_prev_per_100k_pop_pt)) %>% 
+  filter(is.na(n_d_na_prev_std_who_per_100k_pop_pt)==F) %>% 
+  arrange(desc(n_d_na_prev_std_who_per_100k_pop_pt)) %>% 
   slice(1:75) %>% #take top n
-  ggplot(aes(x=n_d_prev_per_100k_pop_pt,
-             y=city_name_country_name_admin_if_dupe_ranked_by_n_d_prev_per_pop,
-             #             y=city_name_country_name_ranked_by_n_d_prev_per_pop
+  ggplot(aes(x=n_d_na_prev_std_who_per_100k_pop_pt,
+             y=city_name_country_name_admin_if_dupe_ranked_by_n_d_na_prev_per_pop,
+             #             y=city_name_country_name_ranked_by_n_d_na_prev_per_pop
   ))+
   geom_point(stroke=0,size=.5,color="transparent")+
-  geom_pointrange(aes(xmin=n_d_prev_per_100k_pop_min_over_9,
-                      xmax=n_d_prev_per_100k_pop_max_over_9))+
+  geom_pointrange(aes(xmin=n_d_na_prev_std_who_per_100k_pop_min_over_9,
+                      xmax=n_d_na_prev_std_who_per_100k_pop_max_over_9))+
   #  scale_x_continuous(limits=c(0,110))+
   labs(
-    x="Estimated number of\npremature deaths prevented\nper 100,000 population",
+    x="Estimated number of\nnon-accidental deaths prevented\nper 100,000 population",
     y="City name")+
   theme_bw(base_size = 8)
 
@@ -355,8 +413,8 @@ mv_gub_hia_1mil_plus=gub_hia_1mil_plus %>%
   mapview(
     lwd=.1,
     col.regions = viridis_pal(option = "plasma"),
-    layer.name = "n_d_prev_per_1k_pop_pt",
-    zcol = "n_d_prev_per_1k_pop_pt")
+    layer.name = "n_d_na_prev_std_who_per_100k_pop_pt",
+    zcol = "n_d_na_prev_std_who_per_100k_pop_pt")
 
 mv_gub_hia_1mil_plus
 object.size(mv_gub_hia_1mil_plus)
@@ -373,15 +431,15 @@ hia_summary_gub %>%
 
 #Now it's back to just a warning...
 hia_summary_gub_geo %>% 
-  arrange(desc(n_d_prev_per_100k_pop_pt)) %>% 
+  arrange(desc(n_d_na_prev_std_who_per_100k_pop_pt)) %>% 
   slice(1:100) %>% 
   filter(is.na(city_name_either_source)==T) %>% 
 #  st_centroid() %>% #so easier to see
   st_point_on_surface() %>% 
-  mapview(zcol="n_d_prev_per_100k_pop_pt")
+  mapview(zcol="n_d_na_prev_std_who_per_100k_pop_pt")
 
 mv_gub_hia_1mil_plus_top_100=gub_hia_1mil_plus %>% 
-  arrange(desc(n_d_prev_per_1k_pop_pt)) %>% 
+  arrange(desc(n_d_na_prev_std_who_per_100k_pop_pt)) %>% 
   slice(1:100) %>% 
   #add name
   left_join(lookup_gub_city_info,by="ORIG_FID") %>% 
@@ -391,20 +449,20 @@ mv_gub_hia_1mil_plus_top_100=gub_hia_1mil_plus %>%
   mapview(
     lwd=.1,
     col.regions = viridis_pal(option = "plasma"),
-    layer.name = "n_d_prev_per_1k_pop_pt",
-    zcol = "n_d_prev_per_1k_pop_pt")
+    layer.name = "n_d_na_prev_std_who_per_100k_pop_pt",
+    zcol = "n_d_na_prev_std_who_per_100k_pop_pt")
 
 mv_gub_hia_1mil_plus_top_100
 #make them centroids for easier vis
 mv_gub_hia_1mil_plus_top_100_centroid=gub_hia_1mil_plus %>% 
-  arrange(desc(n_d_prev_per_1k_pop_pt)) %>% 
+  arrange(desc(n_d_na_prev_std_who_per_100k_pop_pt)) %>% 
   slice(1:100) %>% 
   st_centroid() %>% 
   mapview(
     lwd=.1,
     col.regions = viridis_pal(option = "plasma"),
-    layer.name = "n_d_prev_per_1k_pop_pt",
-    zcol = "n_d_prev_per_1k_pop_pt")
+    layer.name = "n_d_na_prev_std_who_per_100k_pop_pt",
+    zcol = "n_d_na_prev_std_who_per_100k_pop_pt")
 
 
 mv_gub_hia_1mil_plus_top_100_centroid
@@ -457,41 +515,52 @@ setwd(here("data-processed"))
 save(hia_summary_pop_cat_max_fac,file="hia_summary_pop_cat_max_fac.RData")
 names(hia_summary_pop_cat_max_fac)
 hia_summary_pop_cat_max_fac %>% 
-  arrange(desc(n_d_prev_per_1k_pop_pt)) %>% 
+  arrange(desc(n_d_na_prev_std_who_per_100k_pop_pt)) %>% 
   print(n=100)
-#hia_summary_pop_cat_max_fac %>%    View()
+
+hia_summary_pop_cat_max_fac %>%    
+  dplyr::select(
+    pop_cat_max_fac,
+   n_d_na_prev_std_who_per_100k_pop_pt,
+    n_d_na_prev_std_who_per_100k_pop_min_over_9,
+    n_d_na_prev_std_who_per_100k_pop_max_over_9,
+    
+    n_d_ac_prev_crude_gbd_per_100k_pop_pt,
+    n_d_ac_prev_crude_gbd_per_100k_pop_min_over_9,
+    n_d_ac_prev_crude_gbd_per_100k_pop_max_over_9
+  ) %>%  View()
 
 #Dec 1, 2023: Here, Pier asks for the baseline number of deaths.
 #What do they look like?
 hia_summary_pop_cat_max_fac %>% 
   dplyr::select(starts_with("n_d_0"))
 
-### Figure: deaths per 100k x pop dens---------
+### Figure: pop dens x age-standardized death rate---------
 names(hia_summary_pop_cat_max_fac)
 
 #define the upper limit of the y-axis
 hia_summary_pop_cat_max_fac_y_upper_lim=max(
-  hia_summary_pop_cat_max_fac$n_d_prev_per_100k_pop_max_over_9,na.rm=TRUE)*1.1
+  hia_summary_pop_cat_max_fac$n_d_na_prev_std_who_per_100k_pop_max_over_9,na.rm=TRUE)*1.1
 hia_summary_pop_cat_max_fac_y_upper_lim
 
-plot_n_d_prev_per_100k_x_pop_cat=hia_summary_pop_cat_max_fac %>% 
+plot_n_d_na_prev_std_per_100k_x_pop_cat=hia_summary_pop_cat_max_fac %>% 
   ggplot(aes(x=pop_cat_max_fac_w_comma,# Note update Sep 28, 2023-commas
-             y=n_d_prev_per_100k_pop_pt))+
+             y=n_d_na_prev_std_who_per_100k_pop_pt))+
   geom_point()+
-  geom_pointrange(aes(ymin=n_d_prev_per_100k_pop_min_over_9,
-                      ymax=n_d_prev_per_100k_pop_max_over_9))+
+  geom_pointrange(aes(ymin=n_d_na_prev_std_who_per_100k_pop_min_over_9,
+                      ymax=n_d_na_prev_std_who_per_100k_pop_max_over_9))+
   scale_y_continuous(limits=c(0,hia_summary_pop_cat_max_fac_y_upper_lim))+
   labs(
     x=
       "Population density\n (unscaled upper bound of LandScan category)\n of pixel per sq. km",
-    y="Estimated annual\npremature deaths prevented\nper 100,000 population\n(adults 20+)"
+    y="Age-standardized\nnon-accidental\ndeath rate prevented\nper 100,000 population\n(adults 30+)"
     )+ 
   theme_bw(base_size=12)
 
-plot_n_d_prev_per_100k_x_pop_cat
+plot_n_d_na_prev_std_per_100k_x_pop_cat
 
 setwd(here("plots"))
-ggsave("plot_n_d_prev_per_100k_x_pop_cat.png", height=5, width=10)
+ggsave("plot_n_d_na_prev_std_per_100k_x_pop_cat.png", height=5, width=10)
 
 ## By pop. density & biome----
 names(pop_ndvi_gub_biome_tib)
@@ -528,32 +597,39 @@ setwd(here("data-processed"))
 save(hia_summary_biome,file="hia_summary_biome.RData")
 names(hia_summary_biome)
 
-### Figure: deaths per 100k x biome---------
+hia_summary_biome %>% 
+  arrange(desc(n_d_na_prev_std_who_per_100k_pop_pt)) %>% 
+  dplyr::select(biome_name_imp, 
+                starts_with("n_d_na_prev_std_who_per_100k_pop")
+  ) %>% View()
+
+### Figure: biome x age-standardized death rate---------
 
 #define the upper limit of the y-axis
 hia_summary_biome_y_upper_lim=max(
-  hia_summary_biome$n_d_prev_per_100k_pop_max_over_9,na.rm=TRUE)*1.1
+  hia_summary_biome$n_d_na_prev_std_who_per_100k_pop_max_over_9,na.rm=TRUE)*1.1
 hia_summary_biome_y_upper_lim
-plot_n_d_prev_per_100k_x_biome=hia_summary_biome %>% 
+plot_n_d_na_prev_std_per_100k_x_biome=hia_summary_biome %>% 
   filter(is.na(biome_name_imp)==F) %>% 
   ggplot(aes(x=biome_name_imp,# Note update Sep 28, 2023-commas
-             y=n_d_prev_per_100k_pop_pt))+
+             y=n_d_na_prev_std_who_per_100k_pop_pt))+
   geom_point()+
-  geom_pointrange(aes(ymin=n_d_prev_per_100k_pop_min_over_9,
-                      ymax=n_d_prev_per_100k_pop_max_over_9))+
+  geom_pointrange(aes(ymin=n_d_na_prev_std_who_per_100k_pop_min_over_9,
+                      ymax=n_d_na_prev_std_who_per_100k_pop_max_over_9))+
   scale_y_continuous(limits=c(0,hia_summary_biome_y_upper_lim))+
   labs(
-    y="Estimated annual\npremature deaths prevented\nper 100,000 population\n(adults 20+)",
-    x="Biome")+
+    x="Biome",
+    y="Age-standardized\nnon-accidental\ndeath rate prevented\nper 100,000 population\n(adults 30+)"
+  )+ 
   scale_x_discrete(labels=function(x) stringr::str_wrap(x, width=40))+
   theme_bw(base_size=12)+
   theme(axis.text.x=element_text(angle=50, hjust=1))
 
 
-plot_n_d_prev_per_100k_x_biome
+plot_n_d_na_prev_std_per_100k_x_biome
 
 setwd(here("plots"))
-ggsave("plot_n_d_prev_per_100k_x_biome.png", height=5, width=10)
+ggsave("plot_n_d_na_prev_std_per_100k_x_biome.png", height=5, width=10)
 
 #hia_summary_biome %>% View()
 #Feb 21 2023: 330 pm. Biome was modified
@@ -592,6 +668,7 @@ orig_fid_biome_miss = biome_miss %>%
 setwd(here("data-processed"))
 load("lookup_income_grp_5_rename.RData")#loads the new name for income group
 lookup_income_grp
+
 hia_summary_income_grp = pop_ndvi_gub_biome_tib %>% 
   #in the original country dataset, name is "name_en", but in the merged
   #file with UN data, I changed it to "country_name_en".
@@ -605,33 +682,47 @@ hia_summary_income_grp = pop_ndvi_gub_biome_tib %>%
 setwd(here("data-processed"))
 save(hia_summary_income_grp,file="hia_summary_income_grp.RData")
 
-### Figure: deaths per 100k x income group------------------
+names(hia_summary_income_grp)
+hia_summary_income_grp %>% 
+  dplyr::select(
+    contains("income"),
+   n_d_na_prev_std_who_per_100k_pop_pt,
+    n_d_na_prev_std_who_per_100k_pop_min_over_9,
+    n_d_na_prev_std_who_per_100k_pop_max_over_9,
+    
+    n_d_ac_prev_crude_gbd_per_100k_pop_pt,
+    n_d_ac_prev_crude_gbd_per_100k_pop_min_over_9,
+    n_d_ac_prev_crude_gbd_per_100k_pop_max_over_9
+  ) %>% 
+  View()
+
+### Figure: WB income group x age-standardized death rate---------
 load("lookup_income_grp_5_rename.RData")
 names(hia_summary_income_grp)
 #set the upper limit of the y-axis
 hia_summary_income_grp_y_upper_lim=max(
-  hia_summary_income_grp$n_d_prev_per_100k_pop_max_over_9,na.rm=TRUE)*1.1
+  hia_summary_income_grp$n_d_na_prev_std_who_per_100k_pop_max_over_9,na.rm=TRUE)*1.1
 hia_summary_income_grp_y_upper_lim
-plot_n_d_prev_per_100k_x_income_grp=hia_summary_income_grp %>% 
+plot_n_d_na_prev_std_per_100k_x_income_grp=hia_summary_income_grp %>% 
   filter(is.na(income_grp)==F) %>% 
   ggplot(aes(x=income_grp_5_rename, #add dash in the name
-             y=n_d_prev_per_100k_pop_pt #Sep 28, 2023 to include commas 
+             y=n_d_na_prev_std_who_per_100k_pop_pt #Sep 28, 2023 to include commas 
           )
   )+
   geom_point()+
-  geom_pointrange(aes(ymin=n_d_prev_per_100k_pop_min_over_9,
-                      ymax=n_d_prev_per_100k_pop_max_over_9))+
+  geom_pointrange(aes(ymin=n_d_na_prev_std_who_per_100k_pop_min_over_9,
+                      ymax=n_d_na_prev_std_who_per_100k_pop_max_over_9))+
   scale_y_continuous(limits=c(0,hia_summary_income_grp_y_upper_lim))+
   labs(
-    y="Estimated annual\npremature deaths prevented\nper 100,000 population\n(adults 20+)",
+    y="Age-standardized\nnon-accidental\ndeath rate prevented\nper 100,000 population\n(adults 30+)",
     x="World Bank Income Group")+
   theme_bw(base_size=12)+
   scale_x_discrete(labels=function(x) stringr::str_wrap(x, width=10))
 
 
-plot_n_d_prev_per_100k_x_income_grp
+plot_n_d_na_prev_std_per_100k_x_income_grp
 setwd(here("plots"))
-ggsave("plot_n_d_prev_per_100k_x_income_grp.png", height=5, width=10)
+ggsave("plot_n_d_na_prev_std_per_100k_x_income_grp.png", height=5, width=10)
 
 ## By gini coefficient of country-------
 lookup_country_name_en_iso3_alpha_code
@@ -649,7 +740,16 @@ hia_summary_gini = pop_ndvi_gub_biome_tib %>%
 
 names(hia_summary_gini)
 hia_summary_gini %>% 
-  dplyr::select(contains("gini"),n_d_prev_per_pop_mean_pt)
+  dplyr::select(contains("gini"),
+               n_d_na_prev_std_who_per_100k_pop_pt,
+                n_d_na_prev_std_who_per_100k_pop_min_over_9,
+                n_d_na_prev_std_who_per_100k_pop_max_over_9,
+                
+                n_d_ac_prev_crude_gbd_per_100k_pop_pt,
+                n_d_ac_prev_crude_gbd_per_100k_pop_min_over_9,
+                n_d_ac_prev_crude_gbd_per_100k_pop_max_over_9
+  ) %>%  View()
+                
 setwd(here("data-processed"))
 save(hia_summary_gini,file="hia_summary_gini.RData")
 
@@ -670,30 +770,34 @@ hia_summary_country = pop_ndvi_gub_biome_tib %>%
   group_by(country_name_en) %>% 
   hia_summarise() %>% 
   ungroup() %>% 
-  #make country a factor ranked by n_d_prev_per_100k_pop_pt
+  #make country a factor ranked byn_d_na_prev_std_who_per_100k_pop_pt
   mutate(
-    country_name_ranked_by_n_d_prev_per_pop_int=as.factor(country_name_en),
-    country_name_ranked_by_n_d_prev_per_pop=fct_reorder(
-      country_name_ranked_by_n_d_prev_per_pop_int,
-      n_d_prev_per_100k_pop_pt,
+    #Jan 17, 2024
+    #consider updating name here. this is in terms of gbd
+    country_name_ranked_by_n_d_na_prev_per_pop_int=as.factor(country_name_en),
+    country_name_ranked_by_n_d_na_prev_per_pop=fct_reorder(
+      country_name_ranked_by_n_d_na_prev_per_pop_int,
+     n_d_na_prev_std_who_per_100k_pop_pt,
       .na_rm=TRUE)
   ) %>% 
   #I might want these to come along
   left_join(lookup_income_grp, by = c("country_name_en"="name_en"))  
-  
+
+#hia_summary_country %>% View()
 
 #save for Rmarkdown
 setwd(here("data-processed"))
 save(hia_summary_country,file="hia_summary_country.RData")
 # deaths prevented per population
 hia_summary_country %>% 
-  arrange(desc(n_d_prev_per_1k_pop_pt)) %>% 
+  arrange(desc(n_d_na_prev_std_who_per_100k_pop_pt)) %>% 
 #  View()
   print(n=100)
 
 #deaths prevented total
+names(hia_summary_country)
 hia_summary_country %>% 
-  arrange(desc(n_d_prev_mean_pt)) %>% 
+  arrange(desc(n_d_na_prev_crude_who_mean_pt)) %>% 
   print(n=100)
 #yea, not so informative, as it's simply the most populous countries
 
@@ -703,18 +807,18 @@ nrow(hia_summary_country)#176 countries
 nrow(hia_summary_country)/3
 
 names(hia_summary_country)
-plot_n_d_prev_per_100k_x_country_top_n=hia_summary_country %>% 
+plot_n_d_na_prev_std_per_100k_x_country_top_n=hia_summary_country %>% 
   filter(is.na(country_name_en)==F) %>% 
-  filter(is.na(n_d_prev_per_100k_pop_pt)==F) %>% 
-  arrange(desc(n_d_prev_per_100k_pop_pt)) %>% 
+  filter(is.na(n_d_na_prev_std_who_per_100k_pop_pt)==F) %>% 
+  arrange(desc(n_d_na_prev_std_who_per_100k_pop_pt)) %>% 
   slice(1:50) %>% #take top n
   ggplot(aes(color=income_grp,
-             x=n_d_prev_per_100k_pop_pt,
-             y=country_name_ranked_by_n_d_prev_per_pop))+
+             x=n_d_na_prev_std_who_per_100k_pop_pt,
+             y=country_name_ranked_by_n_d_na_prev_per_pop))+
   geom_point(size=1)+
-  geom_pointrange(aes(xmin=n_d_prev_per_100k_pop_min_over_9,
-                      xmax=n_d_prev_per_100k_pop_max_over_9))+
-  scale_x_continuous(limits=c(0,115))+
+  geom_pointrange(aes(xmin=n_d_na_prev_std_who_per_100k_pop_min_over_9,
+                      xmax=n_d_na_prev_std_who_per_100k_pop_max_over_9))+
+  scale_x_continuous(limits=c(0,200))+
   scale_color_brewer(type="qual",
                      #Set2 also works but doesn't portray the sequential nature
                      #The default sequential palettes have too much white
@@ -722,13 +826,13 @@ plot_n_d_prev_per_100k_x_country_top_n=hia_summary_country %>%
                      palette = "Set2",
                      name="Income Group")+
   labs(
-    x="Estimated annual\npremature deaths prevented\nper 100,000 population\n(adults 20+)",
+    x="Estimated annual\nnon-accidental deaths prevented\nper 100,000 population\n(adults 30+)",
     y="Country")+
   theme_bw(base_size = 12)
 
-plot_n_d_prev_per_100k_x_country_top_n
+plot_n_d_na_prev_std_per_100k_x_country_top_n
 setwd(here("plots"))
-ggsave("plot_n_d_prev_per_100k_x_country_top_n.png", height=15, width=10)
+ggsave("plot_n_d_na_prev_std_per_100k_x_country_top_n.png", height=15, width=10)
 nrow(hia_summary_country)
 table(hia_summary_country$income_grp_5_rename)
 
@@ -748,110 +852,263 @@ table(hia_summary_country$income_grp_5_rename)
 #make a function to reduce copy/paste
 ggplot_top_n_country_by_n_death_prev_per_100k=function(df){
   df %>% 
-    ggplot(aes(x=n_d_prev_per_100k_pop_pt,
-               y=country_name_ranked_by_n_d_prev_per_pop))+
+    ggplot(aes(x=n_d_na_prev_std_who_per_100k_pop_pt,
+               y=country_name_ranked_by_n_d_na_prev_per_pop))+
     geom_point(size=1)+
-    geom_pointrange(aes(xmin=n_d_prev_per_100k_pop_min_over_9,
-                        xmax=n_d_prev_per_100k_pop_max_over_9))+
-    scale_x_continuous(limits=c(0,120))+
+    geom_pointrange(aes(xmin=n_d_na_prev_std_who_per_100k_pop_min_over_9,
+                        xmax=n_d_na_prev_std_who_per_100k_pop_max_over_9))+
+    scale_x_continuous(limits=c(0,200))+
 #    scale_y_discrete(labels=function(x) stringr::str_wrap(x, width=30))+
     labs(
-      x="Estimated annual\npremature deaths\n prevented per\n 100,000 population\n(adults 20+)",
+      x="Age-standardized\nnon-accidental\ndeath rate\n prevented\nper 100,000 population\n(adults 30+)",
       y="Country")+
     theme_bw(base_size = 12)
 }
 
 #### values for in-text results---------
+#Adding these to text Jan 22, 2024
 hia_summary_country%>% 
   filter(is.na(country_name_en)==F) %>% 
-  filter(is.na(n_d_prev_per_100k_pop_pt)==F) %>% 
+  filter(is.na(n_d_na_prev_std_who_per_100k_pop_pt)==F) %>% 
   group_by(income_grp_5_rename) %>% 
-  arrange(desc(n_d_prev_per_100k_pop_pt)) %>% 
+  arrange(desc(n_d_na_prev_std_who_per_100k_pop_pt)) %>% 
   slice(1:2) %>% 
   dplyr::select(
     country_name_en, 
     income_grp_5_rename,
-    starts_with("n_d_prev_per_100k_pop")) %>% 
-  View()
+    starts_with("n_d_na_prev_std_who_per_100k_pop")) %>% 
+  print(n=30)
 
-#high income OECD
-plot_n_d_prev_per_100k_x_country_top_n=hia_summary_country %>% 
+#### top countries: high income OECD--------
+plot_n_d_na_prev_std_per_100k_x_country_top_n=hia_summary_country %>% 
   filter(income_grp_5_rename==income_grp_5_rename_levels$income_grp_5_rename[1]) %>% 
   filter(is.na(country_name_en)==F) %>% 
-  filter(is.na(n_d_prev_per_100k_pop_pt)==F) %>% 
-  arrange(desc(n_d_prev_per_100k_pop_pt)) %>% 
+  filter(is.na(n_d_na_prev_std_who_per_100k_pop_pt)==F) %>% 
+  arrange(desc(n_d_na_prev_std_who_per_100k_pop_pt)) %>% 
   ggplot_top_n_country_by_n_death_prev_per_100k
 
 
-plot_n_d_prev_per_100k_x_country_top_n
+plot_n_d_na_prev_std_per_100k_x_country_top_n
 setwd(here("plots"))
-ggsave("plot_n_d_prev_per_100k_x_country_top_wb_1.png", height=6, width=4)
+ggsave("plot_n_d_na_prev_std_per_100k_x_country_top_wb_1.png", height=6, width=4)
 
-#high income non-OECD
-plot_n_d_prev_per_100k_x_country_top_n=hia_summary_country %>% 
+hia_summary_country %>% 
+  filter(income_grp_5_rename==income_grp_5_rename_levels$income_grp_5_rename[1]) %>% 
+  filter(is.na(country_name_en)==F) %>% 
+  filter(is.na(n_d_na_prev_std_who_per_100k_pop_pt)==F) %>% 
+  arrange(desc(n_d_na_prev_std_who_per_100k_pop_pt)) %>% 
+  dplyr::select(
+    country_name_en,
+    contains("n_d_na_prev_std_who_per_100k_pop")
+  ) %>% 
+  print(n=20)
+
+#### top countries: high income non-OECD--------
+plot_n_d_na_prev_std_per_100k_x_country_top_n=hia_summary_country %>% 
   filter(income_grp_5_rename==income_grp_5_rename_levels$income_grp_5_rename[2]) %>% 
   filter(is.na(country_name_en)==F) %>% 
-  filter(is.na(n_d_prev_per_100k_pop_pt)==F) %>% 
-  arrange(desc(n_d_prev_per_100k_pop_pt)) %>% 
+  filter(is.na(n_d_na_prev_std_who_per_100k_pop_pt)==F) %>% 
+  arrange(desc(n_d_na_prev_std_who_per_100k_pop_pt)) %>% 
   ggplot_top_n_country_by_n_death_prev_per_100k
 
 
-plot_n_d_prev_per_100k_x_country_top_n
+plot_n_d_na_prev_std_per_100k_x_country_top_n
 setwd(here("plots"))
-ggsave("plot_n_d_prev_per_100k_x_country_top_wb_2.png", height=6, width=4)
+ggsave("plot_n_d_na_prev_std_per_100k_x_country_top_wb_2.png", height=6, width=4)
 
-#middle income
-plot_n_d_prev_per_100k_x_country_top_n=hia_summary_country %>% 
+hia_summary_country %>% 
+  filter(income_grp_5_rename==income_grp_5_rename_levels$income_grp_5_rename[2]) %>% 
+  filter(is.na(country_name_en)==F) %>% 
+  filter(is.na(n_d_na_prev_std_who_per_100k_pop_pt)==F) %>% 
+  arrange(desc(n_d_na_prev_std_who_per_100k_pop_pt)) %>% 
+  dplyr::select(
+    country_name_en,
+    contains("n_d_na_prev_std_who_per_100k_pop")
+  ) %>% 
+  print(n=20)
+
+#### top countries: middle income--------
+plot_n_d_na_prev_std_per_100k_x_country_top_n=hia_summary_country %>% 
   filter(income_grp_5_rename==income_grp_5_rename_levels$income_grp_5_rename[3]) %>% 
   filter(is.na(country_name_en)==F) %>% 
-  filter(is.na(n_d_prev_per_100k_pop_pt)==F) %>% 
-  arrange(desc(n_d_prev_per_100k_pop_pt)) %>% 
+  filter(is.na(n_d_na_prev_std_who_per_100k_pop_pt)==F) %>% 
+  arrange(desc(n_d_na_prev_std_who_per_100k_pop_pt)) %>% 
   ggplot_top_n_country_by_n_death_prev_per_100k
 
 
-plot_n_d_prev_per_100k_x_country_top_n
+plot_n_d_na_prev_std_per_100k_x_country_top_n
 setwd(here("plots"))
-ggsave("plot_n_d_prev_per_100k_x_country_top_wb_3.png", height=6, width=4)
+ggsave("plot_n_d_na_prev_std_per_100k_x_country_top_wb_3.png", height=6, width=4)
 
-#lower middle income
-plot_n_d_prev_per_100k_x_country_top_n=hia_summary_country %>% 
+hia_summary_country %>% 
+  filter(income_grp_5_rename==income_grp_5_rename_levels$income_grp_5_rename[3]) %>% 
+  filter(is.na(country_name_en)==F) %>% 
+  filter(is.na(n_d_na_prev_std_who_per_100k_pop_pt)==F) %>% 
+  arrange(desc(n_d_na_prev_std_who_per_100k_pop_pt)) %>% 
+  dplyr::select(
+    country_name_en,
+    contains("n_d_na_prev_std_who_per_100k_pop")
+  ) %>% 
+  print(n=20) 
+
+#### top countries: lower middle income--------
+plot_n_d_na_prev_std_per_100k_x_country_top_n=hia_summary_country %>% 
   filter(income_grp_5_rename==income_grp_5_rename_levels$income_grp_5_rename[4]) %>% 
   filter(is.na(country_name_en)==F) %>% 
-  filter(is.na(n_d_prev_per_100k_pop_pt)==F) %>% 
-  arrange(desc(n_d_prev_per_100k_pop_pt)) %>% 
+  filter(is.na(n_d_na_prev_std_who_per_100k_pop_pt)==F) %>% 
+  arrange(desc(n_d_na_prev_std_who_per_100k_pop_pt)) %>% 
   ggplot_top_n_country_by_n_death_prev_per_100k
 
 
-plot_n_d_prev_per_100k_x_country_top_n
+plot_n_d_na_prev_std_per_100k_x_country_top_n
 setwd(here("plots"))
-ggsave("plot_n_d_prev_per_100k_x_country_top_wb_4.png", height=6, width=4)
+ggsave("plot_n_d_na_prev_std_per_100k_x_country_top_wb_4.png", height=6, width=4)
 
-#lower income
-plot_n_d_prev_per_100k_x_country_top_n=hia_summary_country %>% 
+hia_summary_country %>% 
+  filter(income_grp_5_rename==income_grp_5_rename_levels$income_grp_5_rename[4]) %>% 
+  filter(is.na(country_name_en)==F) %>% 
+  filter(is.na(n_d_na_prev_std_who_per_100k_pop_pt)==F) %>% 
+  arrange(desc(n_d_na_prev_std_who_per_100k_pop_pt)) %>% 
+  dplyr::select(
+    country_name_en,
+    contains("n_d_na_prev_std_who_per_100k_pop")
+  ) %>% 
+  print(n=20)# %>% View()
+
+#Is Egypt highest overall?
+hia_summary_country %>% 
+#  filter(income_grp_5_rename==income_grp_5_rename_levels$income_grp_5_rename[4]) %>% 
+  filter(is.na(country_name_en)==F) %>% 
+  filter(is.na(n_d_na_prev_std_who_per_100k_pop_pt)==F) %>% 
+  arrange(desc(n_d_na_prev_std_who_per_100k_pop_pt)) %>% 
+  dplyr::select(
+    country_name_en,
+    contains("n_d_na_prev_std_who_per_100k_pop")
+  ) %>% 
+  print(n=20) 
+#no DRC is
+
+
+#### top countries: lower income--------
+plot_n_d_na_prev_std_per_100k_x_country_top_n=hia_summary_country %>% 
   filter(income_grp_5_rename==income_grp_5_rename_levels$income_grp_5_rename[5]) %>% 
   filter(is.na(country_name_en)==F) %>% 
-  filter(is.na(n_d_prev_per_100k_pop_pt)==F) %>% 
-  arrange(desc(n_d_prev_per_100k_pop_pt)) %>% 
+  filter(is.na(n_d_na_prev_std_who_per_100k_pop_pt)==F) %>% 
+  arrange(desc(n_d_na_prev_std_who_per_100k_pop_pt)) %>% 
   ggplot_top_n_country_by_n_death_prev_per_100k
 
 
-plot_n_d_prev_per_100k_x_country_top_n
+plot_n_d_na_prev_std_per_100k_x_country_top_n
 setwd(here("plots"))
-ggsave("plot_n_d_prev_per_100k_x_country_top_wb_5.png", height=6, width=4)
+ggsave("plot_n_d_na_prev_std_per_100k_x_country_top_wb_5.png", height=6, width=4)
+
+hia_summary_country %>% 
+  filter(income_grp_5_rename==income_grp_5_rename_levels$income_grp_5_rename[5]) %>% 
+  filter(is.na(country_name_en)==F) %>% 
+  filter(is.na(n_d_na_prev_std_who_per_100k_pop_pt)==F) %>% 
+  arrange(desc(n_d_na_prev_std_who_per_100k_pop_pt)) %>% 
+  dplyr::select(
+    country_name_en,
+    contains("n_d_na_prev_std_who_per_100k_pop")
+  ) %>% 
+  print(n=20) %>% View()
 
 ## Overall HIA results for a table-----
 table(pop_ndvi_gub_biome_tib$ndvi_tertile)
+names(pop_ndvi_gub_biome_tib)
 hia_summary_overall= pop_ndvi_gub_biome_tib %>% 
   filter(ndvi_tertile<3) %>%   #exclude top NDVI tertile throughout
   mutate(overall=1) %>% 
   group_by(overall) %>% 
-  hia_summarise()
+  hia_summarise() %>% 
+  mutate(prop_na_n_deaths_of_total=
+           n_d_na_prev_crude_who_mean_pt/
+           n_d_na_0_crude_who_mean
+           )
 
 
 setwd(here("data-processed"))
 save(hia_summary_overall,file="hia_summary_overall.RData")
-#hia_summary_overall %>% View()
+names(hia_summary_overall)
+hia_summary_overall %>% 
+  dplyr::select(contains("prop_na"))
+hia_summary_overall %>% 
+  dplyr::select(
+   n_d_na_prev_std_who_per_100k_pop_pt,
+    n_d_na_prev_std_who_per_100k_pop_min_over_9,
+    n_d_na_prev_std_who_per_100k_pop_max_over_9,
+    
+    n_d_ac_prev_crude_gbd_per_100k_pop_pt,
+    n_d_ac_prev_crude_gbd_per_100k_pop_min_over_9,
+    n_d_ac_prev_crude_gbd_per_100k_pop_max_over_9
+                ) %>% 
+  View()
 
+#comment: crude deaths seem messed up. what about the WHO versions?
+hia_summary_overall %>% 
+  dplyr::select(
+    n_d_ac_prev_std_who_per_100k_pop_pt,
+    n_d_ac_prev_std_who_per_100k_pop_min_over_9,
+    n_d_ac_prev_std_who_per_100k_pop_max_over_9,
+    
+    n_d_ac_prev_crude_who_per_100k_pop_pt,
+    n_d_ac_prev_crude_who_per_100k_pop_min_over_9,
+    n_d_ac_prev_crude_who_per_100k_pop_max_over_9,
+  ) %>% 
+  View()
+#interesting. who looks fine, but GBD is like an order of magnitude too small. strange.
+#update: I fixed it.
+
+#what about the crude number of deaths prevented?
+names(hia_summary_overall)
+hia_summary_overall %>% 
+  dplyr::select(
+    
+    n_d_ac_prev_crude_gbd_mean_pt,
+    n_d_ac_prev_crude_gbd_min_over_9,
+    n_d_ac_prev_crude_gbd_max_over_9,
+    
+    n_d_ac_prev_crude_who_mean_pt,
+    n_d_ac_prev_crude_who_min_over_9,
+    n_d_ac_prev_crude_who_max_over_9,
+  ) %>% 
+  View()
+
+#how much higher is GBD than WHO?
+hia_summary_overall %>% 
+  dplyr::select(
+    n_d_ac_prev_crude_gbd_mean_pt,
+    n_d_ac_prev_crude_who_mean_pt) %>% 
+  mutate(gbd_vs_who_n_d_ac_prev_crude=
+           n_d_ac_prev_crude_gbd_mean_pt/n_d_ac_prev_crude_who_mean_pt
+           )
+
+#non-accidental cause
+names(hia_summary_overall)
+hia_summary_overall %>% 
+  dplyr::select(
+    n_d_na_prev_std_who_per_100k_pop_pt,
+    n_d_na_prev_std_who_per_100k_pop_min_over_9,
+    n_d_na_prev_std_who_per_100k_pop_max_over_9,
+    
+    n_d_na_prev_crude_who_per_100k_pop_pt,
+    n_d_na_prev_crude_who_per_100k_pop_min_over_9,
+    n_d_na_prev_crude_who_per_100k_pop_max_over_9,
+    
+    n_d_na_prev_std_who_mean_pt,
+    n_d_na_prev_std_who_min_over_9,
+    n_d_na_prev_std_who_max_over_9,
+    
+    n_d_na_prev_crude_who_mean_pt,
+    n_d_na_prev_crude_who_min_over_9,
+    n_d_na_prev_crude_who_max_over_9
+  ) %>% 
+  View()
+
+#what share of global deaths is this preventing?
+hia_summary_overall$n_d_0_crude_mean
+hia_summary_overall$n_d_ac_prev_crude_mean_pt
+hia_summary_overall$prop_n_d_ac_prev_crude
 names(hia_summary_overall)
 hia_summary_overall %>% 
   dplyr::select(starts_with("pop_cat_")) %>% 
@@ -859,12 +1116,22 @@ hia_summary_overall %>%
 
 #and now our target pop is 1.8 billion, which is about right.
 
+names(hia_summary_overall)
 hia_summary_overall %>% 
-  dplyr::select(starts_with("n_d_prev_per_100k"))
+  dplyr::select(starts_with("n_d_ac_prev_std_who_per_100k_pop"))
+
+hia_summary_overall %>% 
+  dplyr::select(starts_with("n_d_na_prev_std_who_per_100k_pop"))
+
+hia_summary_overall %>% 
+  dplyr::select(starts_with("n_d_na_prev_crude_who_per_100k_pop"))
+
+hia_summary_overall %>% 
+  dplyr::select(starts_with("n_d_na_prev_crude_who_mean_pt"))
 
 #Pier's question
 hia_summary_overall %>% 
-  dplyr::select(starts_with("n_d_0"))
+  dplyr::select(starts_with("n_d_na_0"))
 
 
 
@@ -872,9 +1139,9 @@ hia_summary_overall %>%
 #bound is much lower and more sensible. good job.
 hia_summary_overall %>% 
   dplyr::select(
-    starts_with("n_d_prev_mean_pt"),
-    starts_with("n_d_prev_min_over_9"),
-    starts_with("n_d_prev_max_over_9"))
+    starts_with("n_d_ac_prev_mean_pt"),
+    starts_with("n_d_ac_prev_min_over_9"),
+    starts_with("n_d_ac_prev_max_over_9"))
 
 
 # Descriptive (non-HIA) results---------
@@ -1167,24 +1434,29 @@ hia_summary_biome %>%
   filter(is.na(biome_name_imp)==F) %>% 
   nrow()
 
+## number of pixels in bottom two tertiles----
+pop_ndvi_gub_biome_tib %>% 
+  filter(ndvi_tertile<3) %>%   #exclude top NDVI tertile throughout  
+  nrow()
+
 # Discussion section - exploring claim that pop. doesn't matter for per-pop values------
 #The question is - do these vary? I think they will all be the same
 names(hia_summary_pop_cat_max_fac)
 hia_summary_pop_cat_max_fac %>% 
   dplyr::select(
     pop_cat_max_fac,
-    n_d_prev_per_pop_max_pt,
-    n_d_prev_per_pop_mean_pt,
-    n_d_prev_per_pop_min_pt)
+    n_d_ac_prev_per_pop_max_pt,
+    n_d_ac_prev_per_pop_mean_pt,
+    n_d_ac_prev_per_pop_min_pt)
 #confirmed - no variation.
 
 #is it the same for GUBs?
 hia_summary_gub %>% 
   dplyr::select(
     ORIG_FID,
-    n_d_prev_per_pop_max_pt,
-    n_d_prev_per_pop_mean_pt,
-    n_d_prev_per_pop_min_pt)
+    n_d_ac_prev_per_pop_max_pt,
+    n_d_ac_prev_per_pop_mean_pt,
+    n_d_ac_prev_per_pop_min_pt)
 #interesting...not exactly the same if we use GUBs
 #okay...so that means that the proof might be telling us something
 #they're the same as long as the top expression has independence
@@ -1192,9 +1464,9 @@ hia_summary_gub %>%
 hia_summary_country %>% 
   dplyr::select(
     country_name_en,
-    n_d_prev_per_pop_max_pt,
-    n_d_prev_per_pop_mean_pt,
-    n_d_prev_per_pop_min_pt)
+    n_d_ac_prev_per_pop_max_pt,
+    n_d_ac_prev_per_pop_mean_pt,
+    n_d_ac_prev_per_pop_min_pt)
 #again - they're close but not identical.
 #okay, that's good...means there's some use in running the different
 #values through
@@ -1204,8 +1476,8 @@ hia_summary_country %>%
 hia_summary_pop_cat_max_fac %>% 
   dplyr::select(
     pop_cat_max_fac,
-    n_d_prev_per_pop_mean_pt,
-    n_d_prev_per_pop_mean_pt_alt_calc)
+    n_d_ac_prev_per_pop_mean_pt,
+    n_d_ac_prev_per_pop_mean_pt_alt_calc)
 #no they're not, but what about this
 
 #ah ha! That was the reason it wasn't adding up
@@ -1214,5 +1486,5 @@ hia_summary_pop_cat_max_fac %>%
 hia_summary_pop_cat_max_fac %>% 
   dplyr::select(
     pop_cat_max_fac,
-    n_d_prev_per_pop_mean_pt, starts_with("paf_rate"))
+    n_d_ac_prev_per_pop_mean_pt, starts_with("paf_rate"))
 
