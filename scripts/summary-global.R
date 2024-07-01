@@ -78,7 +78,7 @@ hia_summary_gub= pop_ndvi_gub_biome_tib %>%
 setwd(here("data-processed"))
 save(hia_summary_gub,file="hia_summary_gub.RData")
 
-
+hia_summary_gub %>% View()
 nrow(hia_summary_gub)
 n_distinct(hia_summary_gub$ORIG_FID)
 names(hia_summary_gub)
@@ -533,7 +533,7 @@ hia_summary_pop_cat_max_fac %>%
 #Dec 1, 2023: Here, Pier asks for the baseline number of deaths.
 #What do they look like?
 hia_summary_pop_cat_max_fac %>% 
-  dplyr::select(starts_with("n_d_0"))
+  dplyr::select(starts_with("n_d_ac"))
 
 ### Figure: pop dens x age-standardized death rate---------
 names(hia_summary_pop_cat_max_fac)
@@ -603,6 +603,8 @@ hia_summary_biome %>%
                 starts_with("n_d_na_prev_std_who_per_100k_pop")
   ) %>% View()
 
+hia_summary_biome %>% 
+  dplyr::select(biome_name_imp, starts_with("ndvi_diff")) %>% View()
 ### Figure: biome x age-standardized death rate---------
 
 #define the upper limit of the y-axis
@@ -660,6 +662,31 @@ orig_fid_biome_miss = biome_miss %>%
 
 # orig_fid_biome_miss %>% mapview()
 # orig_fid_biome_miss %>% plot()
+
+
+#What biome is egypt? Desert I assume
+#Actually lots of flooded grasslands and savannas..
+pop_ndvi_gub_biome_tib
+table(pop_ndvi_gub_biome_tib$country_name_en)
+pop_ndvi_gub_biome_tib %>% 
+  filter(country_name_en=="Egypt") %>% 
+  group_by(biome_name_imp) %>% 
+  summarise(n=n())
+names(pop_ndvi_gub_biome_tib)
+
+#what about Central African Republic?
+pop_ndvi_gub_biome_tib %>% 
+  filter(country_name_en=="Central African Republic") %>% 
+  group_by(biome_name_imp) %>% 
+  summarise(n=n())
+pop_ndvi_gub_biome_tib %>% 
+  filter(country_name_en=="South Sudan") %>% 
+  group_by(biome_name_imp) %>% 
+  summarise(n=n())
+pop_ndvi_gub_biome_tib %>% 
+  filter(country_name_en=="Indonesia") %>% 
+  group_by(biome_name_imp) %>% 
+  summarise(n=n())
 
 
 ## By income category------

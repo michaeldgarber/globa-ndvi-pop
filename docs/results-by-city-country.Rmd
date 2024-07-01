@@ -65,7 +65,7 @@ hia_summary_country %>%
 #  https://rstudio.github.io/DT/
   DT::datatable(
     colnames = c(
-      "Urban area name", 
+      "Country name", 
       "Age-standardized deaths prevented per 100k adults 20+",
       "Lower 95% uncertainty limit",
       "Upper 95% uncertainty limit")

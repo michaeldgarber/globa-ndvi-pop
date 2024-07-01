@@ -179,7 +179,8 @@ wb_class = read_excel("wb_class_edits.xlsx") %>%
 
 table(wb_class$income_grp_wb)
 table(wb_class$income_grp_wb_fac)
-wb_class
+table(wb_class$region_wb_dl)
+
 #Will this link with the pop data?
 names(un_deaths_2019)
 class(un_deaths_2019$location_code_un)
@@ -227,13 +228,16 @@ who_deaths_by_country_2019 = read_excel("who-2019-mortality-by-country.xlsx") %>
     age=as.numeric(age_char)#keep age_char for calcs below Jan 18, 2024
   ) %>% 
   #Don't need sex, as we know it's both, and don't need name
-  #also don't need region and income information perhaps use later, so can create a lookup below
+  #also don't need region and income information perhaps use later, 
+  #so can create a lookup below
   dplyr::select(
-    -contains("sex"),-contains("whoname"),-contains("whoreg"),-contains("wbinc")
+    -contains("sex"),-contains("whoname"),
+    -contains("whoreg"),-contains("wbinc")
                 )
 
 #how many countries?
 n_distinct(who_deaths_by_country_2019$iso3_alpha_code)
+table(who_deaths_by_country_2019$age)
 table(who_deaths_by_country_2019$iso3_alpha_code)
 who_deaths_by_country_2019
 
@@ -312,6 +316,8 @@ who_deaths_ui_by_country_2019 = read_excel("who-deaths-unintentional-inj-sex-age
   )
 
 
+who_deaths_ui_by_country_2019
+
 prop_ui_n_deaths_ac_who_pt_mean_by_age=who_deaths_ui_by_country_2019 %>% 
   group_by(age) %>% 
   summarise(
@@ -330,28 +336,32 @@ prop_ui_n_deaths_ac_who_pt_mean_by_age
 #   print(n=100)
 
 ## Load data on all injuries--------
-# Per Crouse et al, the stud of Canadian cities, ICD-10 codes included in non-accidental are
+# Per Crouse et al, the study of Canadian cities, ICD-10 codes included in non-accidental are
 #A through R, which does exclude suicide and other violent events, so basically all
 #injuries should be excluded. This will take our overall number of deaths prevented
 #down by quite a bit.
-setwd(here("data-input", "who-mortality-data","who-deaths-injuries"))
 #inj for injury
-who_deaths_inj_by_country_2019 = read_excel("who-deaths-all-inj-sex-age-country-year.xlsx") %>% 
-  filter(Year==2019) %>% 
+#June 24, 2024:
+#Here's what I'm going to do. For each country, take the latest available data.
+#Because it's the proportion of the total, not the grand total, it might be okay.
+setwd(here("data-input", "who-mortality-data","who-deaths-injuries"))
+#It used to be called who_deaths_inj_by_country_2019. Let's call it instead
+#who_deaths_inj_by_country_latest
+who_deaths_inj_by_country_latest = read_excel("who-deaths-all-inj-sex-age-country-year.xlsx") %>% 
+#  filter(Year==2019) %>% 
   filter(Sex=="All") %>%  #limit to all sexes %>% 
   #rename country code to iso3_alpha_code
   #so it can be linked
   rename(iso3_alpha_code=`Country Code`) %>% 
   #make everything lowercase
   rename_with(tolower) %>% 
-  #don't need country name or region code
-  dplyr::select(-contains("region"),-contains("country name")) %>% 
   #rename this. ui for unintentional injury
   rename(
     n_deaths_inj_who_pt=number,
     #it would be good to keep this one too
     #proportion of total deaths that are unintentional injury
-    perc_inj_n_deaths_ac_who_pt=`percentage of cause-specific deaths out of total deaths`
+    perc_inj_n_deaths_ac_who_pt=`percentage of cause-specific deaths out of total deaths`,
+    year_injury_data=year,
   ) %>% 
   #reformat the age to link with above
   #This works
@@ -363,19 +373,78 @@ who_deaths_inj_by_country_2019 = read_excel("who-deaths-all-inj-sex-age-country-
   ) %>% 
   #now limit to age 30+
   filter(age>=30) %>% 
+  #now take the latest year within country age group
+  group_by(iso3_alpha_code,age) %>% 
+  arrange(desc(year_injury_data)) %>% 
+  slice(1:5) %>% #top 5 most recent years...
   #and just keep the data that we need for the link
+  #don't need country name or region code
+  dplyr::select(-contains("region"),-contains("country name")) %>% 
   dplyr::select(
     contains("iso"),
+    contains("year"),
     age,
     contains("n_death"),
     contains("prop")
-  )
+  ) %>% 
+  #okay, now I can remove anything newer than 2020, as there are no countries with 2020 that do
+  #not also have 2019
+  ungroup() %>% 
+  filter(year_injury_data<2020) %>% 
+  filter(year_injury_data>2009) %>% 
+  #and now take each country's most recent year
+  group_by(iso3_alpha_code,age) %>% 
+  arrange(desc(year_injury_data)) %>% 
+  slice(1) %>% 
+  ungroup()
 
 
-who_deaths_inj_by_country_2019
+names(who_deaths_inj_by_country_latest)
+#who_deaths_inj_by_country_latest %>% View()
+max(who_deaths_inj_by_country_latest$year_injury_data)
+#Either 2019 or the latest for that country
+who_deaths_inj_by_country_latest %>% 
+  group_by(iso3_alpha_code) %>% 
+  summarise(year_max=max(year_injury_data)) %>% 
+  nrow()
+
+(183-116)/183
+who_deaths_inj_by_country_latest %>% 
+  group_by(iso3_alpha_code) %>% 
+  summarise(year_max=max(year_injury_data)) %>% 
+  arrange(year_max) %>% 
+  print(n=200)
+  
+who_deaths_inj_by_country_latest %>% 
+  group_by(iso3_alpha_code) %>% 
+  summarise(year_max=max(year_injury_data)) %>% 
+  ggplot(aes(x=year_max))+
+  geom_histogram()
+n_countries_with_all_cause_mortality_2019-118
+65/183
+#how many have 2019 data?
+who_deaths_inj_by_country_latest %>% 
+  filter(year_injury_data==2019) %>% 
+  group_by(iso3_alpha_code) %>% 
+  summarise(n=n()) %>% 
+  nrow()
+
+
+    
 
 sum(pop_by_age_country$pop)
-prop_inj_n_deaths_ac_who_pt_mean_by_age=who_deaths_inj_by_country_2019 %>%
+#now how many unique countries does that give us?
+#we're up to 118
+n_distinct(who_deaths_inj_by_country_latest$iso3_alpha_code)
+
+#Let's get a histogram of the proportion due to injury
+who_deaths_inj_by_country_latest %>% 
+  ggplot(aes(x=prop_inj_n_deaths_ac_who_pt))+
+  geom_histogram()+
+  facet_grid(rows="age")
+
+### proportion injury related by age group-----
+prop_inj_n_deaths_ac_who_pt_mean_by_age=who_deaths_inj_by_country_latest %>%
   left_join(pop_by_age_country,by=c("iso3_alpha_code","age")) %>% 
   group_by(age) %>% 
   #this should be a weighted mean. can weight by the number of deaths
@@ -401,13 +470,649 @@ prop_ui_n_deaths_ac_who_pt_mean_by_age
 
 #alright mean and med are about the same. mean works.
 #Link the two to calculate non-accidental (NA mortality)
+78/183
+n_countries_with_all_cause_mortality_2019=n_distinct(who_deaths_by_country_2019$iso3_alpha_code)
+n_countries_with_all_cause_mortality_2019-78
+n_distinct(who_deaths_inj_by_country_latest$iso3_alpha_code)
 
-## Link WHO data and age-standardize the mortality rates---------
+n_distinct(pop_by_age_country$iso3_alpha_code)
+
+### proportion injury related by age group and world bank class-----
+#June 24, 2024
+#Reviewers commented that the proportion of missing data was high for unintentional injury, which is true.
+#and that the assumption to use the age-group-specific average is perhaps not appropriate.
+#Let's see how well we can stratify. Do we have representation here in every income class?
+table(wb_class$income_grp_wb_fac)
+prop_inj_n_deaths_ac_who_pt_mean_by_age_wb_class=who_deaths_inj_by_country_latest %>%
+  left_join(pop_by_age_country,by=c("iso3_alpha_code","age")) %>% 
+  left_join(wb_class,by="iso3_alpha_code") %>% 
+  group_by(age,income_grp_wb_fac) %>% 
+  summarise(
+    n=n(),
+    prop_inj_n_deaths_ac_who_pt_mean_over_country=mean(prop_inj_n_deaths_ac_who_pt,na.rm=T),
+    prop_inj_n_deaths_ac_who_pt_mean_wt_over_country=weighted.mean(
+      x=prop_inj_n_deaths_ac_who_pt,
+      w=n_deaths_inj_who_pt,
+      na.rm=T),
+    prop_inj_n_deaths_ac_who_pt_med_over_country=median(prop_inj_n_deaths_ac_who_pt,na.rm=T),
+    prop_inj_n_deaths_ac_who_pt_sd_over_country=sd(prop_inj_n_deaths_ac_who_pt,na.rm=T)
+  ) %>% 
+  ungroup() 
+
+
+#June 24, 2024: we now have representation in every country, but only 1
+#low-income country. Which one is it? It's Syria.
+#I don't think we can reliably say that Syria has
+prop_inj_n_deaths_ac_who_pt_mean_by_age_wb_class %>% View()
+who_deaths_inj_by_country_latest %>% 
+  left_join(wb_class,by="iso3_alpha_code") %>% 
+  filter(income_grp_wb_fac=="Low income")
+  
+
+#what about just by wb class?
+prop_inj_n_deaths_ac_who_pt_mean_by_wb_class=who_deaths_inj_by_country_latest %>%
+  left_join(pop_by_age_country,by=c("iso3_alpha_code","age")) %>% 
+  left_join(wb_class,by="iso3_alpha_code") %>% 
+  group_by(income_grp_wb_fac) %>% 
+  summarise(
+    prop_inj_n_deaths_ac_who_pt_mean_over_country=mean(prop_inj_n_deaths_ac_who_pt,na.rm=T),
+    prop_inj_n_deaths_ac_who_pt_mean_wt_over_country=weighted.mean(
+      x=prop_inj_n_deaths_ac_who_pt,
+      w=n_deaths_inj_who_pt,
+      na.rm=T),
+    prop_inj_n_deaths_ac_who_pt_med_over_country=median(prop_inj_n_deaths_ac_who_pt,na.rm=T),
+    prop_inj_n_deaths_ac_who_pt_sd_over_country=sd(prop_inj_n_deaths_ac_who_pt,na.rm=T)
+  ) %>% 
+  ungroup() 
+
+prop_inj_n_deaths_ac_who_pt_mean_by_wb_class %>% View()
+
+### what about by region?
+prop_inj_n_deaths_ac_who_pt_mean_by_age_region_wb_dl=who_deaths_inj_by_country_latest %>%
+  left_join(pop_by_age_country,by=c("iso3_alpha_code","age")) %>% 
+  left_join(wb_class,by="iso3_alpha_code") %>% 
+  group_by(age,region_wb_dl) %>% 
+  summarise(
+    n_countries=n(),
+    prop_inj_n_deaths_ac_who_pt_mean_over_country=mean(prop_inj_n_deaths_ac_who_pt,na.rm=T),
+    prop_inj_n_deaths_ac_who_pt_mean_wt_over_country=weighted.mean(
+      x=prop_inj_n_deaths_ac_who_pt,
+      w=n_deaths_inj_who_pt,
+      na.rm=T),
+    prop_inj_n_deaths_ac_who_pt_med_over_country=median(prop_inj_n_deaths_ac_who_pt,na.rm=T),
+    prop_inj_n_deaths_ac_who_pt_sd_over_country=sd(prop_inj_n_deaths_ac_who_pt,na.rm=T)
+  ) %>% 
+  ungroup()
+
+n_distinct(prop_inj_n_deaths_ac_who_pt_mean_by_age_region_wb_dl$region_wb_dl)
+prop_inj_n_deaths_ac_who_pt_mean_by_age_region_wb_dl %>% View()
+who_deaths_inj_by_country_latest %>% 
+  left_join(wb_class,by="iso3_alpha_code") %>% 
+  View()
+
+## Fit model to impute missing injury proportion-------
+### Try 1: overall model---------
+#should we try a model for the imputed data?
+names(who_deaths_inj_by_country_latest)
+who_deaths_inj_by_country_latest_for_model=who_deaths_inj_by_country_latest %>% 
+  left_join(wb_class,by="iso3_alpha_code") 
+  
+table(who_deaths_inj_by_country_latest_for_model$region_wb_dl)
+table(who_deaths_inj_by_country_latest_for_model$income_grp_wb)
+glm_prop_inj=glm(prop_inj_n_deaths_ac_who_pt~age+region_wb_dl+income_grp_wb,
+                 family=gaussian,
+                 na.action="na.exclude",
+                 data=who_deaths_inj_by_country_latest_for_model)
+
+glm_prop_inj
+
+#Impute
+who_deaths_inj_by_country_to_impute=who_deaths_by_country_2019 %>% 
+  filter(age>=30) %>% #note this will exclude "all" as well
+  left_join(who_deaths_inj_by_country_latest,by=c("iso3_alpha_code","age")) %>% 
+  filter(is.na(prop_inj_n_deaths_ac_who_pt)==T) %>%
+  left_join(wb_class,by="iso3_alpha_code") %>% 
+  dplyr::select(contains("iso3"),contains("age"),contains("region_wb_dl"),contains("income_grp_wb"))
+
+who_deaths_inj_by_country_to_impute
+
+#there are some negatives. I should fit the model in each age group.
+who_deaths_inj_by_country_imputed=as_tibble(
+  stats::predict(glm_prop_inj,
+                 who_deaths_inj_by_country_to_impute,
+                 type="response",
+                 na.action = "na.exclude" ,
+                 se.fit = TRUE)
+)
+
+who_deaths_inj_by_country_imputed %>% View()
+who_deaths_inj_by_country_to_impute %>% View()
+
+### Fit model in each age group------
+#Let's fit the model in each age group. It will be less susceptible to bias I think
+table(who_deaths_inj_by_country_latest$age)
+
+who_deaths_inj_by_country_latest_for_model_30=who_deaths_inj_by_country_latest_for_model %>% 
+  filter(age==30)
+who_deaths_inj_by_country_latest_for_model_35=who_deaths_inj_by_country_latest_for_model %>% 
+  filter(age==35)
+who_deaths_inj_by_country_latest_for_model_40=who_deaths_inj_by_country_latest_for_model %>% 
+  filter(age==40)
+who_deaths_inj_by_country_latest_for_model_45=who_deaths_inj_by_country_latest_for_model %>% 
+  filter(age==45)
+who_deaths_inj_by_country_latest_for_model_50=who_deaths_inj_by_country_latest_for_model %>% 
+  filter(age==50)
+who_deaths_inj_by_country_latest_for_model_55=who_deaths_inj_by_country_latest_for_model %>% 
+  filter(age==55)
+who_deaths_inj_by_country_latest_for_model_60=who_deaths_inj_by_country_latest_for_model %>% 
+  filter(age==60)
+who_deaths_inj_by_country_latest_for_model_65=who_deaths_inj_by_country_latest_for_model %>% 
+  filter(age==65)
+who_deaths_inj_by_country_latest_for_model_70=who_deaths_inj_by_country_latest_for_model %>% 
+  filter(age==70)
+who_deaths_inj_by_country_latest_for_model_75=who_deaths_inj_by_country_latest_for_model %>% 
+  filter(age==75)
+who_deaths_inj_by_country_latest_for_model_80=who_deaths_inj_by_country_latest_for_model %>% 
+  filter(age==80)
+who_deaths_inj_by_country_latest_for_model_85=who_deaths_inj_by_country_latest_for_model %>% 
+  filter(age==85)
+
+
+# Fit models
+#This is nice because you get the global average and then it bumps around a little based
+#on the country's demographics
+glm_prop_inj_30=glm(prop_inj_n_deaths_ac_who_pt~region_wb_dl+income_grp_wb,
+                    family=gaussian,
+                    na.action="na.exclude",
+                    data=who_deaths_inj_by_country_latest_for_model_30)
+
+glm_prop_inj_30
+
+glm_prop_inj_35=glm(prop_inj_n_deaths_ac_who_pt~region_wb_dl+income_grp_wb,
+                    family=gaussian,
+                    na.action="na.exclude",
+                    data=who_deaths_inj_by_country_latest_for_model_35)
+
+glm_prop_inj_35
+
+glm_prop_inj_40=glm(prop_inj_n_deaths_ac_who_pt~region_wb_dl+income_grp_wb,
+                    family=gaussian,
+                    na.action="na.exclude",
+                    data=who_deaths_inj_by_country_latest_for_model_40)
+
+glm_prop_inj_40
+
+glm_prop_inj_45=glm(prop_inj_n_deaths_ac_who_pt~region_wb_dl+income_grp_wb,
+                    family=gaussian,
+                    na.action="na.exclude",
+                    data=who_deaths_inj_by_country_latest_for_model_45)
+
+glm_prop_inj_45
+
+glm_prop_inj_50=glm(prop_inj_n_deaths_ac_who_pt~region_wb_dl+income_grp_wb,
+                    family=gaussian,
+                    na.action="na.exclude",
+                    data=who_deaths_inj_by_country_latest_for_model_50)
+
+glm_prop_inj_50
+
+glm_prop_inj_55=glm(prop_inj_n_deaths_ac_who_pt~region_wb_dl+income_grp_wb,
+                    family=gaussian,
+                    na.action="na.exclude",
+                    data=who_deaths_inj_by_country_latest_for_model_55)
+
+glm_prop_inj_55
+
+glm_prop_inj_60=glm(prop_inj_n_deaths_ac_who_pt~region_wb_dl+income_grp_wb,
+                    family=gaussian,
+                    na.action="na.exclude",
+                    data=who_deaths_inj_by_country_latest_for_model_60)
+
+glm_prop_inj_60
+
+glm_prop_inj_65=glm(prop_inj_n_deaths_ac_who_pt~region_wb_dl+income_grp_wb,
+                    family=gaussian,
+                    na.action="na.exclude",
+                    data=who_deaths_inj_by_country_latest_for_model_65)
+
+glm_prop_inj_65
+
+glm_prop_inj_70=glm(prop_inj_n_deaths_ac_who_pt~region_wb_dl+income_grp_wb,
+                    family=gaussian,
+                    na.action="na.exclude",
+                    data=who_deaths_inj_by_country_latest_for_model_70)
+
+glm_prop_inj_70
+
+glm_prop_inj_75=glm(prop_inj_n_deaths_ac_who_pt~region_wb_dl+income_grp_wb,
+                    family=gaussian,
+                    na.action="na.exclude",
+                    data=who_deaths_inj_by_country_latest_for_model_75)
+
+glm_prop_inj_75
+
+glm_prop_inj_80=glm(prop_inj_n_deaths_ac_who_pt~region_wb_dl+income_grp_wb,
+                    family=gaussian,
+                    na.action="na.exclude",
+                    data=who_deaths_inj_by_country_latest_for_model_80)
+
+glm_prop_inj_80
+
+glm_prop_inj_85=glm(prop_inj_n_deaths_ac_who_pt~region_wb_dl+income_grp_wb,
+                    family=gaussian,
+                    na.action="na.exclude",
+                    data=who_deaths_inj_by_country_latest_for_model_85)
+
+glm_prop_inj_85
+
+
+#### Predict values in each age group--------
+##### 30-------
+who_deaths_inj_by_country_to_impute_30=who_deaths_by_country_2019 %>% 
+  filter(age==30) %>% #note this will exclude "all" as well
+  left_join(who_deaths_inj_by_country_latest,by=c("iso3_alpha_code","age")) %>% 
+  filter(is.na(prop_inj_n_deaths_ac_who_pt)==T) %>%
+  left_join(wb_class,by="iso3_alpha_code") %>% 
+  dplyr::select(contains("iso3"),contains("age"),contains("region_wb_dl"),contains("income_grp_wb"))
+
+who_deaths_inj_by_country_to_impute_30
+
+#there are some negatives. I should fit the model in each age group.
+#prop_inj_n_deaths_ac_who_pt
+who_deaths_inj_by_country_imputed_30=as_tibble(
+  stats::predict(glm_prop_inj_30,
+                 who_deaths_inj_by_country_to_impute_30,
+                 type="response",
+                 na.action = "na.exclude" ,
+                 se.fit = TRUE)
+) %>% 
+  #If it's available, I call it this, so we can call it
+  #"imp_pt" for imputed and imp_se for standard error of the fit
+  rename(
+    prop_inj_n_deaths_ac_who_imp_pt=fit,
+    prop_inj_n_deaths_ac_who_imp_se=se.fit
+  ) %>% 
+  bind_cols(who_deaths_inj_by_country_to_impute_30)
+  
+
+who_deaths_inj_by_country_imputed_30
+
+##### 35-------
+who_deaths_inj_by_country_to_impute_35=who_deaths_by_country_2019 %>% 
+  filter(age==35) %>% #note this will exclude "all" as well
+  left_join(who_deaths_inj_by_country_latest,by=c("iso3_alpha_code","age")) %>% 
+  filter(is.na(prop_inj_n_deaths_ac_who_pt)==T) %>%
+  left_join(wb_class,by="iso3_alpha_code") %>% 
+  dplyr::select(contains("iso3"),contains("age"),contains("region_wb_dl"),contains("income_grp_wb"))
+
+who_deaths_inj_by_country_to_impute_35
+
+#there are some negatives. I should fit the model in each age group.
+#prop_inj_n_deaths_ac_who_pt
+who_deaths_inj_by_country_imputed_35=as_tibble(
+  stats::predict(glm_prop_inj_35,
+                 who_deaths_inj_by_country_to_impute_35,
+                 type="response",
+                 na.action = "na.exclude" ,
+                 se.fit = TRUE)
+) %>% 
+  #If it's available, I call it this, so we can call it
+  #"imp_pt" for imputed and imp_se for standard error of the fit
+  rename(
+    prop_inj_n_deaths_ac_who_imp_pt=fit,
+    prop_inj_n_deaths_ac_who_imp_se=se.fit
+  ) %>% 
+  bind_cols(who_deaths_inj_by_country_to_impute_35)
+
+
+who_deaths_inj_by_country_imputed_35 
+
+##### 40-------
+who_deaths_inj_by_country_to_impute_40=who_deaths_by_country_2019 %>% 
+  filter(age==40) %>% #note this will exclude "all" as well
+  left_join(who_deaths_inj_by_country_latest,by=c("iso3_alpha_code","age")) %>% 
+  filter(is.na(prop_inj_n_deaths_ac_who_pt)==T) %>%
+  left_join(wb_class,by="iso3_alpha_code") %>% 
+  dplyr::select(contains("iso3"),contains("age"),contains("region_wb_dl"),contains("income_grp_wb"))
+
+who_deaths_inj_by_country_to_impute_40
+
+#there are some negatives. I should fit the model in each age group.
+#prop_inj_n_deaths_ac_who_pt
+who_deaths_inj_by_country_imputed_40=as_tibble(
+  stats::predict(glm_prop_inj_40,
+                 who_deaths_inj_by_country_to_impute_40,
+                 type="response",
+                 na.action = "na.exclude" ,
+                 se.fit = TRUE)
+) %>% 
+  #If it's available, I call it this, so we can call it
+  #"imp_pt" for imputed and imp_se for standard error of the fit
+  rename(
+    prop_inj_n_deaths_ac_who_imp_pt=fit,
+    prop_inj_n_deaths_ac_who_imp_se=se.fit
+  ) %>% 
+  bind_cols(who_deaths_inj_by_country_to_impute_40)
+
+
+who_deaths_inj_by_country_imputed_40 
+
+
+##### 45-------
+who_deaths_inj_by_country_to_impute_45=who_deaths_by_country_2019 %>% 
+  filter(age==45) %>% #note this will exclude "all" as well
+  left_join(who_deaths_inj_by_country_latest,by=c("iso3_alpha_code","age")) %>% 
+  filter(is.na(prop_inj_n_deaths_ac_who_pt)==T) %>%
+  left_join(wb_class,by="iso3_alpha_code") %>% 
+  dplyr::select(contains("iso3"),contains("age"),contains("region_wb_dl"),contains("income_grp_wb"))
+
+who_deaths_inj_by_country_to_impute_45
+
+#there are some negatives. I should fit the model in each age group.
+#prop_inj_n_deaths_ac_who_pt
+who_deaths_inj_by_country_imputed_45=as_tibble(
+  stats::predict(glm_prop_inj_45,
+                 who_deaths_inj_by_country_to_impute_45,
+                 type="response",
+                 na.action = "na.exclude" ,
+                 se.fit = TRUE)
+) %>% 
+  #If it's available, I call it this, so we can call it
+  #"imp_pt" for imputed and imp_se for standard error of the fit
+  rename(
+    prop_inj_n_deaths_ac_who_imp_pt=fit,
+    prop_inj_n_deaths_ac_who_imp_se=se.fit
+  ) %>% 
+  bind_cols(who_deaths_inj_by_country_to_impute_45)
+
+
+who_deaths_inj_by_country_imputed_45
+
+##### 50-------
+who_deaths_inj_by_country_to_impute_50=who_deaths_by_country_2019 %>% 
+  filter(age==50) %>% #note this will exclude "all" as well
+  left_join(who_deaths_inj_by_country_latest,by=c("iso3_alpha_code","age")) %>% 
+  filter(is.na(prop_inj_n_deaths_ac_who_pt)==T) %>%
+  left_join(wb_class,by="iso3_alpha_code") %>% 
+  dplyr::select(contains("iso3"),contains("age"),contains("region_wb_dl"),contains("income_grp_wb"))
+
+who_deaths_inj_by_country_to_impute_50
+
+#there are some negatives. I should fit the model in each age group.
+#prop_inj_n_deaths_ac_who_pt
+who_deaths_inj_by_country_imputed_50=as_tibble(
+  stats::predict(glm_prop_inj_50,
+                 who_deaths_inj_by_country_to_impute_50,
+                 type="response",
+                 na.action = "na.exclude" ,
+                 se.fit = TRUE)
+) %>% 
+  #If it's available, I call it this, so we can call it
+  #"imp_pt" for imputed and imp_se for standard error of the fit
+  rename(
+    prop_inj_n_deaths_ac_who_imp_pt=fit,
+    prop_inj_n_deaths_ac_who_imp_se=se.fit
+  ) %>% 
+  bind_cols(who_deaths_inj_by_country_to_impute_50)
+
+
+who_deaths_inj_by_country_imputed_50
+
+
+##### 55-------
+who_deaths_inj_by_country_to_impute_55=who_deaths_by_country_2019 %>% 
+  filter(age==55) %>% #note this will exclude "all" as well
+  left_join(who_deaths_inj_by_country_latest,by=c("iso3_alpha_code","age")) %>% 
+  filter(is.na(prop_inj_n_deaths_ac_who_pt)==T) %>%
+  left_join(wb_class,by="iso3_alpha_code") %>% 
+  dplyr::select(contains("iso3"),contains("age"),contains("region_wb_dl"),contains("income_grp_wb"))
+
+who_deaths_inj_by_country_to_impute_55
+
+#there are some negatives. I should fit the model in each age group.
+#prop_inj_n_deaths_ac_who_pt
+who_deaths_inj_by_country_imputed_55=as_tibble(
+  stats::predict(glm_prop_inj_55,
+                 who_deaths_inj_by_country_to_impute_55,
+                 type="response",
+                 na.action = "na.exclude" ,
+                 se.fit = TRUE)
+) %>% 
+  #If it's available, I call it this, so we can call it
+  #"imp_pt" for imputed and imp_se for standard error of the fit
+  rename(
+    prop_inj_n_deaths_ac_who_imp_pt=fit,
+    prop_inj_n_deaths_ac_who_imp_se=se.fit
+  ) %>% 
+  bind_cols(who_deaths_inj_by_country_to_impute_55)
+
+
+who_deaths_inj_by_country_imputed_55
+
+
+##### 60-------
+who_deaths_inj_by_country_to_impute_60=who_deaths_by_country_2019 %>% 
+  filter(age==60) %>% #note this will exclude "all" as well
+  left_join(who_deaths_inj_by_country_latest,by=c("iso3_alpha_code","age")) %>% 
+  filter(is.na(prop_inj_n_deaths_ac_who_pt)==T) %>%
+  left_join(wb_class,by="iso3_alpha_code") %>% 
+  dplyr::select(contains("iso3"),contains("age"),contains("region_wb_dl"),contains("income_grp_wb"))
+
+who_deaths_inj_by_country_to_impute_60
+
+#there are some negatives. I should fit the model in each age group.
+#prop_inj_n_deaths_ac_who_pt
+who_deaths_inj_by_country_imputed_60=as_tibble(
+  stats::predict(glm_prop_inj_60,
+                 who_deaths_inj_by_country_to_impute_60,
+                 type="response",
+                 na.action = "na.exclude" ,
+                 se.fit = TRUE)
+) %>% 
+  #If it's available, I call it this, so we can call it
+  #"imp_pt" for imputed and imp_se for standard error of the fit
+  rename(
+    prop_inj_n_deaths_ac_who_imp_pt=fit,
+    prop_inj_n_deaths_ac_who_imp_se=se.fit
+  ) %>% 
+  bind_cols(who_deaths_inj_by_country_to_impute_60)
+
+
+who_deaths_inj_by_country_imputed_60
+
+
+##### 65-------
+who_deaths_inj_by_country_to_impute_65=who_deaths_by_country_2019 %>% 
+  filter(age==65) %>% #note this will exclude "all" as well
+  left_join(who_deaths_inj_by_country_latest,by=c("iso3_alpha_code","age")) %>% 
+  filter(is.na(prop_inj_n_deaths_ac_who_pt)==T) %>%
+  left_join(wb_class,by="iso3_alpha_code") %>% 
+  dplyr::select(contains("iso3"),contains("age"),contains("region_wb_dl"),contains("income_grp_wb"))
+
+who_deaths_inj_by_country_to_impute_65
+
+#there are some negatives. I should fit the model in each age group.
+#prop_inj_n_deaths_ac_who_pt
+who_deaths_inj_by_country_imputed_65=as_tibble(
+  stats::predict(glm_prop_inj_65,
+                 who_deaths_inj_by_country_to_impute_65,
+                 type="response",
+                 na.action = "na.exclude" ,
+                 se.fit = TRUE)
+) %>% 
+  #If it's available, I call it this, so we can call it
+  #"imp_pt" for imputed and imp_se for standard error of the fit
+  rename(
+    prop_inj_n_deaths_ac_who_imp_pt=fit,
+    prop_inj_n_deaths_ac_who_imp_se=se.fit
+  ) %>% 
+  bind_cols(who_deaths_inj_by_country_to_impute_65)
+
+
+who_deaths_inj_by_country_imputed_65
+
+##### 70-------
+who_deaths_inj_by_country_to_impute_70=who_deaths_by_country_2019 %>% 
+  filter(age==70) %>% #note this will exclude "all" as well
+  left_join(who_deaths_inj_by_country_latest,by=c("iso3_alpha_code","age")) %>% 
+  filter(is.na(prop_inj_n_deaths_ac_who_pt)==T) %>%
+  left_join(wb_class,by="iso3_alpha_code") %>% 
+  dplyr::select(contains("iso3"),contains("age"),contains("region_wb_dl"),contains("income_grp_wb"))
+
+who_deaths_inj_by_country_to_impute_70
+
+#there are some negatives. I should fit the model in each age group.
+#prop_inj_n_deaths_ac_who_pt
+who_deaths_inj_by_country_imputed_70=as_tibble(
+  stats::predict(glm_prop_inj_70,
+                 who_deaths_inj_by_country_to_impute_70,
+                 type="response",
+                 na.action = "na.exclude" ,
+                 se.fit = TRUE)
+) %>% 
+  #If it's available, I call it this, so we can call it
+  #"imp_pt" for imputed and imp_se for standard error of the fit
+  rename(
+    prop_inj_n_deaths_ac_who_imp_pt=fit,
+    prop_inj_n_deaths_ac_who_imp_se=se.fit
+  ) %>% 
+  bind_cols(who_deaths_inj_by_country_to_impute_70)
+
+
+who_deaths_inj_by_country_imputed_70
+
+##### 75-------
+who_deaths_inj_by_country_to_impute_75=who_deaths_by_country_2019 %>% 
+  filter(age==75) %>% #note this will exclude "all" as well
+  left_join(who_deaths_inj_by_country_latest,by=c("iso3_alpha_code","age")) %>% 
+  filter(is.na(prop_inj_n_deaths_ac_who_pt)==T) %>%
+  left_join(wb_class,by="iso3_alpha_code") %>% 
+  dplyr::select(contains("iso3"),contains("age"),contains("region_wb_dl"),contains("income_grp_wb"))
+
+who_deaths_inj_by_country_to_impute_75
+
+#there are some negatives. I should fit the model in each age group.
+#prop_inj_n_deaths_ac_who_pt
+who_deaths_inj_by_country_imputed_75=as_tibble(
+  stats::predict(glm_prop_inj_75,
+                 who_deaths_inj_by_country_to_impute_75,
+                 type="response",
+                 na.action = "na.exclude" ,
+                 se.fit = TRUE)
+) %>% 
+  #If it's available, I call it this, so we can call it
+  #"imp_pt" for imputed and imp_se for standard error of the fit
+  rename(
+    prop_inj_n_deaths_ac_who_imp_pt=fit,
+    prop_inj_n_deaths_ac_who_imp_se=se.fit
+  ) %>% 
+  bind_cols(who_deaths_inj_by_country_to_impute_75)
+
+
+who_deaths_inj_by_country_imputed_75
+
+##### 80-------
+who_deaths_inj_by_country_to_impute_80=who_deaths_by_country_2019 %>% 
+  filter(age==80) %>% #note this will exclude "all" as well
+  left_join(who_deaths_inj_by_country_latest,by=c("iso3_alpha_code","age")) %>% 
+  filter(is.na(prop_inj_n_deaths_ac_who_pt)==T) %>%
+  left_join(wb_class,by="iso3_alpha_code") %>% 
+  dplyr::select(contains("iso3"),contains("age"),contains("region_wb_dl"),contains("income_grp_wb"))
+
+who_deaths_inj_by_country_to_impute_80
+
+#there are some negatives. I should fit the model in each age group.
+#prop_inj_n_deaths_ac_who_pt
+who_deaths_inj_by_country_imputed_80=as_tibble(
+  stats::predict(glm_prop_inj_80,
+                 who_deaths_inj_by_country_to_impute_80,
+                 type="response",
+                 na.action = "na.exclude" ,
+                 se.fit = TRUE)
+) %>% 
+  #If it's available, I call it this, so we can call it
+  #"imp_pt" for imputed and imp_se for standard error of the fit
+  rename(
+    prop_inj_n_deaths_ac_who_imp_pt=fit,
+    prop_inj_n_deaths_ac_who_imp_se=se.fit
+  ) %>% 
+  bind_cols(who_deaths_inj_by_country_to_impute_80)
+
+
+who_deaths_inj_by_country_imputed_80
+
+##### 85-------
+who_deaths_inj_by_country_to_impute_85=who_deaths_by_country_2019 %>% 
+  filter(age==85) %>% #note this will exclude "all" as well
+  left_join(who_deaths_inj_by_country_latest,by=c("iso3_alpha_code","age")) %>% 
+  filter(is.na(prop_inj_n_deaths_ac_who_pt)==T) %>%
+  left_join(wb_class,by="iso3_alpha_code") %>% 
+  dplyr::select(contains("iso3"),contains("age"),
+                contains("region_wb_dl"),contains("income_grp_wb"))
+
+who_deaths_inj_by_country_to_impute_85
+
+#there are some negatives. I should fit the model in each age group.
+#prop_inj_n_deaths_ac_who_pt
+who_deaths_inj_by_country_imputed_85=as_tibble(
+  stats::predict(glm_prop_inj_85,
+                 who_deaths_inj_by_country_to_impute_85,
+                 type="response",
+                 na.action = "na.exclude" ,
+                 se.fit = TRUE)
+) %>% 
+  #If it's available, I call it this, so we can call it
+  #"imp_pt" for imputed and imp_se for standard error of the fit
+  rename(
+    prop_inj_n_deaths_ac_who_imp_pt=fit,
+    prop_inj_n_deaths_ac_who_imp_se=se.fit
+  ) %>% 
+  bind_cols(who_deaths_inj_by_country_to_impute_85)
+
+
+who_deaths_inj_by_country_imputed_85
+
+### Build the dataset of predicted values back together------
+#and link with those where imputation was not necessary
+
+
+
+who_deaths_inj_by_country_imputed_all_ages=who_deaths_inj_by_country_imputed_30 %>% 
+  bind_rows(
+    who_deaths_inj_by_country_imputed_35,
+    who_deaths_inj_by_country_imputed_40,
+    who_deaths_inj_by_country_imputed_45,
+    who_deaths_inj_by_country_imputed_50,
+    who_deaths_inj_by_country_imputed_55,
+    who_deaths_inj_by_country_imputed_60,
+    who_deaths_inj_by_country_imputed_65,
+    who_deaths_inj_by_country_imputed_70,
+    who_deaths_inj_by_country_imputed_75,
+    who_deaths_inj_by_country_imputed_80,
+    who_deaths_inj_by_country_imputed_85
+  ) %>% 
+  #can remove the residual.scale. It's .116 %>% 
+  dplyr::select(-contains("residual.scale")) %>% 
+  #now I can also omit the wb stuff and age_char
+  dplyr::select(-contains("wb"),-contains("age_char"))
+
+who_deaths_inj_by_country_imputed_all_ages
+
+
+### Describe missingness patterns----- 
+### Summarize residuals------
+#for
+
+# Link WHO data and age-standardize the mortality rates---------
+
 #Jan 16, 2024: updating to use 30+ rather than 20+
 #Limit to 20+ and do some more wrangling
 #Comment: to be more conservative, we might consider restricting to 30+
-who_deaths_by_country_2019_30_plus=who_deaths_by_country_2019 %>% 
-  #now limit to age 30+
+#June 26, 2024 updated to include the updated imputed proportion injury data
+
+#Now I can left join this with the rest of the data
+#The dataset with the non-missing data
+who_deaths_by_country_2019_30_plus =who_deaths_by_country_2019 %>% 
   filter(age>=30) %>% #note this will exclude "all" as well
   #total over all age groups to get the proportion in each age group
   group_by(iso3_alpha_code) %>% 
@@ -415,10 +1120,11 @@ who_deaths_by_country_2019_30_plus=who_deaths_by_country_2019 %>%
   mutate(pop_all_ages=sum(pop,na.rm=T)) %>% 
   ungroup() %>% 
   mutate(age_prop=pop/pop_all_ages) %>% 
-  #let's link in the unintentional injury data here
-  left_join(who_deaths_ui_by_country_2019,by=c("iso3_alpha_code","age")) %>% 
-  left_join(who_deaths_inj_by_country_2019,by=c("iso3_alpha_code","age")) %>% 
+  left_join(who_deaths_ui_by_country_2019,by=c("iso3_alpha_code","age")) %>% #Don't think I'm using this
+  left_join(who_deaths_inj_by_country_latest,by=c("iso3_alpha_code","age")) %>% 
+  left_join(who_deaths_inj_by_country_imputed_all_ages,by=c("iso3_alpha_code","age")) %>% 
   mutate(
+    #indicator variables for missingness
     miss_n_deaths_ui=case_when(
     is.na(n_deaths_ui_who_pt)==T~1,
     TRUE ~0
@@ -433,12 +1139,13 @@ who_deaths_by_country_2019_30_plus=who_deaths_by_country_2019 %>%
     is.na(prop_inj_n_deaths_ac_who_pt)==T~1,
     TRUE~0
   )) %>% 
-  #okay, if it's missing, then we can impute the proportion with 
-  #the overall age-group-specific mean over country
-  left_join(prop_inj_n_deaths_ac_who_pt_mean_by_age,by="age") %>% 
+  #June 26, 2024: here we're imputing the age-group-specific value
+  #using the model above instead of just taking the global mean as before.
+  #This fills in this column with the imputed value if it's missing.
+  #I have a flag if I need to keep track of which one is imputed
   mutate(
     prop_inj_n_deaths_ac_who_pt=case_when(
-      miss_prop_inj_n_deaths_ac_who_pt==1~prop_inj_n_deaths_ac_who_pt_mean_over_country,
+      miss_prop_inj_n_deaths_ac_who_pt==1~prop_inj_n_deaths_ac_who_imp_pt,
       TRUE ~prop_inj_n_deaths_ac_who_pt
   ),
   #now, calculate the death rate for non-accidental as
@@ -452,10 +1159,16 @@ who_deaths_by_country_2019_30_plus=who_deaths_by_country_2019 %>%
   n_deaths_na_who_pt=dths*(1-prop_inj_n_deaths_ac_who_pt)
   )
 
+#how many countries?
+
+n_distinct(who_deaths_by_country_2019_30_plus$iso3_alpha_code)
 names(who_deaths_by_country_2019_30_plus)
 who_deaths_by_country_2019_30_plus %>% 
-  dplyr::select(contains("iso"),contains("age"),contains("death_rate"))
+  dplyr::select(contains("iso"),contains("age"),contains("death_rate")) %>% 
+  print(n=1000)
 
+who_deaths_by_country_2019_30_plus %>% 
+  View()
 summary(who_deaths_by_country_2019_30_plus$death_rate_na_who_pt)
 who_deaths_by_country_2019_30_plus %>% 
   ggplot(aes(x=death_rate_na_who_pt))+

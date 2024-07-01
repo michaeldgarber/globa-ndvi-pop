@@ -112,6 +112,15 @@ mutate_steps_hia_ndvi_pop = function(df){
         ndvi_tertile <3 ~       ndvi_83-ndvi_2019,
         ndvi_tertile==3 ~ NA_real_),
       
+      #June 25, 2024:
+      #One reviewer suggested a 10% increase. I'm not going to do that but I am curious
+      #what the ndvi differences we've observed here correspond to.
+      #so let's calculate a percent difference
+      ndvi_diff_pd=
+        case_when(
+          ndvi_tertile <3 ~       (ndvi_83-ndvi_2019)/ndvi_2019,
+          ndvi_tertile==3 ~ NA_real_),
+      
       #Now I can simply do the HIA. For now just use the mean of
       #the population category as a population estimate.
       #Modified from the HIA code in green-space-denver
@@ -576,6 +585,14 @@ hia_summarise = function(df){
       ndvi_diff_med = median(ndvi_diff, na.rm=TRUE),
       ndvi_diff_25th = quantile(ndvi_diff, probs=c(0.25), na.rm=TRUE),
       ndvi_diff_75th = quantile(ndvi_diff, probs=c(0.75), na.rm=TRUE),
+      
+      #percent differences
+      ndvi_diff_pd_mean=mean(ndvi_diff_pd,na.rm=T),
+      ndvi_diff_pd_sd = sd(ndvi_diff_pd, na.rm=TRUE),
+      ndvi_diff_pd_med = median(ndvi_diff_pd, na.rm=TRUE),
+      ndvi_diff_pd_25th = quantile(ndvi_diff_pd, probs=c(0.25), na.rm=TRUE),
+      ndvi_diff_pd_75th = quantile(ndvi_diff_pd, probs=c(0.75), na.rm=TRUE),
+      
       
 
       #Oct 10, 2023: I have a hunch this is why my various ways of
