@@ -20,6 +20,7 @@ load("pop_ndvi_gub_biome_tib.RData")
 source(here("scripts", "analysis-functions.R"))
 
 #Run this. It's pretty fast and loads necessary look-ups
+#Jul 2, 2024: don't run this every time anymore because the bootstrapping takes a while
 source(here("scripts", "read-united-nations-gbd-data.R"))
 
 
@@ -103,7 +104,7 @@ hia_summary_gub %>%
 
 hia_summary_gub %>% 
   dplyr::select(starts_with("ORIG"), starts_with("pop")) %>% 
-  arrange(pop_cat_mean_val_scaled) %>% 
+  arrange(pop_cat_mean_val_scaled_who) %>% 
   print(n=100)
 
 #hia_summary_gub %>%  View()
@@ -127,6 +128,7 @@ hia_summary_gub %>%
 #Let's check.
 setwd(here("data-processed"))
 load("lookup_gub_geoname_id.RData")
+names(hia_summary_gub)
 hia_summary_gub %>% 
   dplyr::select(
     starts_with("ORIG"), 
@@ -135,7 +137,7 @@ hia_summary_gub %>%
     starts_with("country"),
     starts_with("pop")
   ) %>% 
-  arrange(pop_cat_mean_val_scaled)  
+  arrange(pop_cat_mean_val_scaled_who)  
 #many seem to be in China. Let's map these cities with zero population.
 
 setwd(here("data-processed"))
@@ -144,7 +146,7 @@ load("lookup_gub_orig_fid_geo.RData")
 #Suggestion to use st_point_on_surface() instead
 #https://www.researchgate.net/post/Error_Messages_with_st_centroid_function_in_Rstudio_Any_Idea
 hia_summary_gub %>%
-  filter(pop_cat_mean_val_scaled<5) %>%
+  filter(pop_cat_mean_val_scaled_who<5) %>%
   left_join(lookup_gub_orig_fid_geo, by = "ORIG_FID") %>%
   st_as_sf() %>%
   st_point_on_surface() %>% 
@@ -206,7 +208,7 @@ hia_summary_gub_1mil_plus = pop_ndvi_gub_biome_tib %>%
   filter(ndvi_tertile<3) %>%   #exclude top NDVI tertile throughout  
   group_by(ORIG_FID) %>% 
   hia_summarise() %>% 
-  filter(pop_cat_mean_val_scaled>=1000000) 
+  filter(pop_cat_mean_val_scaled_who>=1000000) 
 
 hia_summary_gub_1mil_plus
 setwd(here("data-processed"))
@@ -405,7 +407,7 @@ setwd(here("data-processed"))
 load("gub.RData")
 gub_hia_1mil_plus = gub %>% 
   left_join(hia_summary_gub_1mil_plus, by = "ORIG_FID") %>% 
-  filter(pop_cat_mean_val_scaled >0)
+  filter(pop_cat_mean_val_scaled_who >0)
 
 library(viridis)
 names(gub_hia_1mil_plus)
@@ -425,18 +427,19 @@ load("lookup_gub_city_name.RData")
 
 ### Map of top 100 by deaths prevented per capita, regardless of size----
 hia_summary_gub %>% 
-  filter(pop_cat_mean_val_scaled >0)
+  filter(pop_cat_mean_val_scaled_who >0)
 
 #which ones have missing city names and have pretty large pop?
 
 #Now it's back to just a warning...
-hia_summary_gub_geo %>% 
-  arrange(desc(n_d_na_prev_std_who_per_100k_pop_pt)) %>% 
-  slice(1:100) %>% 
-  filter(is.na(city_name_either_source)==T) %>% 
-#  st_centroid() %>% #so easier to see
-  st_point_on_surface() %>% 
-  mapview(zcol="n_d_na_prev_std_who_per_100k_pop_pt")
+#July 2, 2024: this throws an error
+# hia_summary_gub_geo %>% 
+#   arrange(desc(n_d_na_prev_std_who_per_100k_pop_pt)) %>% 
+#   slice(1:100) %>% 
+#   filter(is.na(city_name_either_source)==T) %>% 
+# #  st_centroid() %>% #so easier to see
+#   st_point_on_surface() %>% 
+#   mapview(zcol="n_d_na_prev_std_who_per_100k_pop_pt")
 
 mv_gub_hia_1mil_plus_top_100=gub_hia_1mil_plus %>% 
   arrange(desc(n_d_na_prev_std_who_per_100k_pop_pt)) %>% 
@@ -604,6 +607,16 @@ hia_summary_biome %>%
   ) %>% View()
 
 hia_summary_biome %>% 
+  arrange(desc(pop_cat_mean_val_scaled_who_millions)) %>% 
+  dplyr::select(biome_name_imp, pop_cat_mean_val_scaled_who_millions) %>% 
+  mutate(
+    pop_cat_mean_val_scaled_who_millions_total=sum(pop_cat_mean_val_scaled_who_millions),
+    pop_cat_mean_val_scaled_who_millions_cumsum=cumsum(pop_cat_mean_val_scaled_who_millions),
+    pop_cat_mean_cumsum_share_of_total=pop_cat_mean_val_scaled_who_millions_cumsum/
+      pop_cat_mean_val_scaled_who_millions_total
+  )
+
+hia_summary_biome %>% 
   dplyr::select(biome_name_imp, starts_with("ndvi_diff")) %>% View()
 ### Figure: biome x age-standardized death rate---------
 
@@ -687,6 +700,7 @@ pop_ndvi_gub_biome_tib %>%
   filter(country_name_en=="Indonesia") %>% 
   group_by(biome_name_imp) %>% 
   summarise(n=n())
+n_distinct(pop_ndvi_gub_biome_tib$biome_name_imp)
 
 
 ## By income category------
@@ -1064,10 +1078,10 @@ hia_summary_overall %>%
    n_d_na_prev_std_who_per_100k_pop_pt,
     n_d_na_prev_std_who_per_100k_pop_min_over_9,
     n_d_na_prev_std_who_per_100k_pop_max_over_9,
-    
-    n_d_ac_prev_crude_gbd_per_100k_pop_pt,
-    n_d_ac_prev_crude_gbd_per_100k_pop_min_over_9,
-    n_d_ac_prev_crude_gbd_per_100k_pop_max_over_9
+   
+   n_d_na_prev_crude_who_per_100k_pop_pt,
+   n_d_na_prev_crude_who_per_100k_pop_min_over_9,
+   n_d_na_prev_crude_who_per_100k_pop_max_over_9
                 ) %>% 
   View()
 
@@ -1468,50 +1482,51 @@ pop_ndvi_gub_biome_tib %>%
 
 # Discussion section - exploring claim that pop. doesn't matter for per-pop values------
 #The question is - do these vary? I think they will all be the same
+#July 2, 2024: I'm getting an issue
 names(hia_summary_pop_cat_max_fac)
-hia_summary_pop_cat_max_fac %>% 
-  dplyr::select(
-    pop_cat_max_fac,
-    n_d_ac_prev_per_pop_max_pt,
-    n_d_ac_prev_per_pop_mean_pt,
-    n_d_ac_prev_per_pop_min_pt)
+# hia_summary_pop_cat_max_fac %>% 
+#   dplyr::select(
+#     pop_cat_max_fac,
+#     n_d_na_prev_crude_who_per_100k_pop_min_pt,
+#     n_d_na_prev_crude_who_per_100k_pop_mean_pt,
+#     n_d_na_prev_crude_who_per_100k_pop_max_pt)
 #confirmed - no variation.
 
 #is it the same for GUBs?
-hia_summary_gub %>% 
-  dplyr::select(
-    ORIG_FID,
-    n_d_ac_prev_per_pop_max_pt,
-    n_d_ac_prev_per_pop_mean_pt,
-    n_d_ac_prev_per_pop_min_pt)
+# hia_summary_gub %>% 
+#   dplyr::select(
+#     ORIG_FID,
+#     n_d_ac_prev_per_pop_max_pt,
+#     n_d_ac_prev_per_pop_mean_pt,
+#     n_d_ac_prev_per_pop_min_pt)
 #interesting...not exactly the same if we use GUBs
 #okay...so that means that the proof might be telling us something
 #they're the same as long as the top expression has independence
 #between the population r.v. and the r.v. of baseline rate*PAF
-hia_summary_country %>% 
-  dplyr::select(
-    country_name_en,
-    n_d_ac_prev_per_pop_max_pt,
-    n_d_ac_prev_per_pop_mean_pt,
-    n_d_ac_prev_per_pop_min_pt)
+# hia_summary_country %>% 
+#   dplyr::select(
+#     country_name_en,
+#     n_d_ac_prev_per_pop_max_pt,
+#     n_d_ac_prev_per_pop_mean_pt,
+#     n_d_ac_prev_per_pop_min_pt)
 #again - they're close but not identical.
 #okay, that's good...means there's some use in running the different
 #values through
 
 #what about by country?
 #are these the same? 
-hia_summary_pop_cat_max_fac %>% 
-  dplyr::select(
-    pop_cat_max_fac,
-    n_d_ac_prev_per_pop_mean_pt,
-    n_d_ac_prev_per_pop_mean_pt_alt_calc)
+# hia_summary_pop_cat_max_fac %>% 
+#   dplyr::select(
+#     pop_cat_max_fac,
+#     n_d_ac_prev_per_pop_mean_pt,
+#     n_d_ac_prev_per_pop_mean_pt_alt_calc)
 #no they're not, but what about this
 
 #ah ha! That was the reason it wasn't adding up
 #They're the same apart from rounding error...almost
 #except also for some issues in the high-pop zone
-hia_summary_pop_cat_max_fac %>% 
-  dplyr::select(
-    pop_cat_max_fac,
-    n_d_ac_prev_per_pop_mean_pt, starts_with("paf_rate"))
+# hia_summary_pop_cat_max_fac %>% 
+#   dplyr::select(
+#     pop_cat_max_fac,
+#     n_d_ac_prev_per_pop_mean_pt, starts_with("paf_rate"))
 

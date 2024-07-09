@@ -30,7 +30,7 @@ setwd(here("data-processed"))
 source(here("scripts", "rojas_green_space_drf.R")) #load dose-response info
 
 #get the merged UN - GBD data
-source(here("scripts", "merge-un-countries-geo.R")) 
+#source(here("scripts", "merge-un-countries-geo.R")) 
 countries_joined_with_un_pop_deaths_pared_nogeo
 names(countries_joined_with_un_pop_deaths_pared_nogeo)
 

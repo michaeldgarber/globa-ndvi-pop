@@ -5,7 +5,7 @@
 #Re-running January 17, 2024 after having updated
 # Source scripts----
 library(here)
-source(here("scripts", "read-united-nations-gbd-data.R")) #formerly called read-united-nations-deaths.R
+#source(here("scripts", "read-united-nations-gbd-data.R")) #formerly called read-united-nations-deaths.R
 source(here("scripts", "read-boundaries-states-countries.R"))
 
 # Initial checks----
