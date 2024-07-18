@@ -218,14 +218,16 @@ mutate_steps_hia_ndvi_pop = function(df){
 
       ## Non-accidental deaths------
       #Note just WHO data here, no GBD data (not necessary)
+      #July 2, 2024: update: I've added uncertainty corresponding to the imputation model
       n_d_na_0_std_who_mean=death_rate_na_who_30_plus_std_pt*pop_cat_mean_val_scaled_who,
-      n_d_na_0_std_who_min=death_rate_na_who_30_plus_std_pt*pop_cat_min_val_scaled_who, #lower limit here
-      n_d_na_0_std_who_max=death_rate_na_who_30_plus_std_pt*pop_cat_max_val_scaled_who,#upper limit on rate
+      n_d_na_0_std_who_min=death_rate_na_who_30_plus_std_ll*pop_cat_min_val_scaled_who, #lower limit here
+      n_d_na_0_std_who_max=death_rate_na_who_30_plus_std_ul*pop_cat_max_val_scaled_who,#upper limit on rate
       
       #and now the crude (not age-adjusted) estimate
+      #July 2, 2024: update: I've added uncertainty corresponding to the imputation model
       n_d_na_0_crude_who_mean=death_rate_na_who_30_plus_crude_pt*pop_cat_mean_val_scaled_who,
-      n_d_na_0_crude_who_min=death_rate_na_who_30_plus_crude_pt*pop_cat_min_val_scaled_who,
-      n_d_na_0_crude_who_max=death_rate_na_who_30_plus_crude_pt*pop_cat_max_val_scaled_who,
+      n_d_na_0_crude_who_min=death_rate_na_who_30_plus_crude_ll*pop_cat_min_val_scaled_who,#lower limit of rate
+      n_d_na_0_crude_who_max=death_rate_na_who_30_plus_crude_ul*pop_cat_max_val_scaled_who,#upper limit
 
       #paf rate - curious Oct 10  
       #doesn't matter if rate and PAF are not independent,
@@ -375,6 +377,7 @@ mutate_steps_hia_ndvi_pop = function(df){
       #na for non-accidental
       # WHO only
       #age-standardized
+      #Updating this July 2, 2024 to consider imputation uncertainty
       n_d_na_prev_std_who_mean_pt = paf_na_pt*n_d_na_0_std_who_mean*-1, #multiply by -1 so it's prevented deaths
       n_d_na_prev_std_who_mean_ul = paf_na_sl*n_d_na_0_std_who_mean*-1,  
       n_d_na_prev_std_who_mean_ll = paf_na_wl*n_d_na_0_std_who_mean*-1,  

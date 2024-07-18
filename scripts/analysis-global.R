@@ -593,12 +593,18 @@ save(lookup_pop_cat_max_fac,
 lookup_pop_cat_max_fac
 
 # Main analysis steps----
+#July 18, 2024: Here trying to track down why many countries don't have
+#baseline mortality data
+#Check on Palestine, Taiwan, Hong Kong, and Puerto Rico.
+#The reason they don't have data is because they're not in WHO 2019 mortality data.
+
 names(countries_joined_with_un_pop_deaths_pared_nogeo)
 names(lookup_gub_several_vars_wrangle)
 names(pop_ndvi_gub_biome_tib_gub_not_miss)#note we don't have a measure of area
 #can just assume it's one, though?
 load("countries_joined_with_un_pop_deaths_pared_nogeo.RData")
 names(countries_joined_with_un_pop_deaths_pared_nogeo)
+table(countries_joined_with_un_pop_deaths_pared_nogeo$who_data_missing_country)
 source(here("scripts", "rojas_green_space_drf.R")) #load dose-response info if needed
 pop_ndvi_gub_biome_tib = pop_ndvi_gub_biome_tib_gub_not_miss %>% 
   bind_cols(rr_ac) %>%   #add DRF to every row (regardless of country)
@@ -610,8 +616,11 @@ pop_ndvi_gub_biome_tib = pop_ndvi_gub_biome_tib_gub_not_miss %>%
   left_join(countries_joined_with_un_pop_deaths_pared_nogeo, by = "country_name_en") %>% 
   mutate(pixel_id = row_number()) %>% #row number for a given pixel
   mutate(area_km2_pixel=1) %>% #assume it's one I suppose Oct 10, 2023
-  filter(is.na(pop_cat_1_8)==FALSE) %>% #NAs throwing error 
+  filter(is.na(pop_cat_1_8)==FALSE) %>% #NAs throwing error
   filter(ndvi_2019>0) %>% #exclude NDVI below 0 (water)
+  
+  #July 18, 2024: limit to countries with non-missing WHO mortality data
+  filter(who_data_missing_country==0) %>% 
   #link in the city-biome lookup so that I can impute biomes
   #for pixels with missing biomes
   left_join(lookup_gub_biome_top, by = "ORIG_FID") %>% 
@@ -651,13 +660,15 @@ save(pop_ndvi_gub_biome_tib, file = "pop_ndvi_gub_biome_tib.RData")
 
 ### Checks-----
 #how do the filters affect the number of rows?
-nrow(pop_ndvi_gub_biome_tib)#1193569 if no pop or area filter
-#1026388 with the 5 km2 filters and 1,000 pop
+#July 18, 2024: after the filter excluding countries with missing WHO mortality data:
+nrow(pop_ndvi_gub_biome_tib)
 names(pop_ndvi_gub_biome_tib)
 object.size(pop_ndvi_gub_biome_tib) 
 table(pop_ndvi_gub_biome_tib$pop_cat_max_fac)
 table(pop_ndvi_gub_biome_tib$country_name_en)
 n_distinct(pop_ndvi_gub_biome_tib$country_name_en)
+n_distinct(pop_ndvi_gub_biome_tib$ORIG_FID)
+n_distinct(pop_ndvi_gub_biome_tib$biome_name_imp)
 
 
 #How many cities have more than one biome?

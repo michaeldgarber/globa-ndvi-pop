@@ -96,6 +96,24 @@ hia_summary_gub %>%
                 ) %>% 
   View()
 
+names(hia_summary_gub)
+hia_summary_gub %>% 
+  mutate(
+    #Round these before passing through...will be easier than trying to round using data table
+    #0 decimals is good.
+    n_d_na_prev_std_who_per_100k_pop_pt_round=round(n_d_na_prev_std_who_per_100k_pop_pt),
+    n_d_na_prev_std_who_per_100k_min_over_9_round=round(n_d_na_prev_std_who_per_100k_pop_min_over_9),
+    n_d_na_prev_std_who_per_100k_max_over_9_round=round(n_d_na_prev_std_who_per_100k_pop_max_over_9)
+  ) %>% 
+  dplyr::select(
+    city_name_admin_code_country_name,
+    ndvi_diff_med, #are zeros because of zero NDVI diff?
+    n_d_na_0_crude_who_mean, #did WHO data not merge?
+    pop_cat_mean_val_gub,ends_with("round")
+  ) %>% 
+  arrange(desc(n_d_na_prev_std_who_per_100k_pop_pt_round)) %>% 
+  View()
+  
 
 #which country name do I prefer?
 # hia_summary_gub %>% 
@@ -145,13 +163,14 @@ load("lookup_gub_orig_fid_geo.RData")
 #Oct 9, 2023: having issues with st_centroid.
 #Suggestion to use st_point_on_surface() instead
 #https://www.researchgate.net/post/Error_Messages_with_st_centroid_function_in_Rstudio_Any_Idea
-hia_summary_gub %>%
-  filter(pop_cat_mean_val_scaled_who<5) %>%
-  left_join(lookup_gub_orig_fid_geo, by = "ORIG_FID") %>%
-  st_as_sf() %>%
-  st_point_on_surface() %>% 
-#  st_centroid() %>%
-  mapview()
+library(sf)
+# hia_summary_gub %>%
+#   filter(pop_cat_mean_val_scaled_who<5) %>%
+#   left_join(lookup_gub_orig_fid_geo, by = "ORIG_FID") %>%
+#   st_as_sf() %>%
+#   st_point_on_surface() %>% 
+# #  st_centroid() %>%
+#   mapview()
 
 ### GUBs with missing city name (either source)------
 #how many?

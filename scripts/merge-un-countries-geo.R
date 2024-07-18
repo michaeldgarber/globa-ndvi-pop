@@ -26,7 +26,17 @@ un_pop_deaths_2019
 names(un_pop_deaths_2019)
 names(countries)
 names(un_pop_deaths_2019)
+#July 18, 2024:
+#Investigating whether certain countries have WHO data
+names(un_pop_deaths_2019)
+un_pop_deaths_2019 %>% 
+  dplyr::select(country_name_en, contains("who")) %>% 
+  View()
 #what happens if I try to link based on those two columns?
+countries %>% 
+  st_set_geometry(NULL) %>% 
+  dplyr::select(name_en) %>% 
+  View()
 countries_joined_with_un_pop_deaths = countries %>% 
   #get rid of population variables here to avoid confusion
   #with the UN estimates
@@ -47,7 +57,7 @@ countries_joined_with_un_pop_deaths = countries %>%
     #this ultimately comes from rnatural earth, so let's use ne as a suffix
     #Actually major backtrack. It's too hard to change now. Keep it _en
     #and just remember that it's from natural earth
-    country_name_en = name_en 
+    country_name_en = name_en
   ) 
 
 setwd(here("data-processed"))
@@ -73,11 +83,14 @@ countries_to_check #go back to the UN code.
 
 # A pared-down version-----
 #a version with fewer variables
+names(countries_joined_with_un_pop_deaths)
 countries_joined_with_un_pop_deaths_pared = countries_joined_with_un_pop_deaths  %>% 
   dplyr::select(
     starts_with("country_name"), 
     contains("death"), #note this keeps the rates as well
     contains("pop_"), 
+    #make sure all WHO-relevant variables are kept as well
+    contains("who"),
     contains("join")
     )
 

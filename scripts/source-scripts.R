@@ -13,3 +13,4 @@ source(here("scripts", "rasterize-vectors.R")) #those that aren't already raster
 source(here("scripts", "merge-rasters.R")) #merge all rasters
 source(here("scripts", "final-data-combining.R")) #Dec 1, 2023: separated this from analysis-global.R 
 source(here("scripts", "analysis-global.R")) #HIA
+source(here("scripts", "summary-global.R")) #HIA
