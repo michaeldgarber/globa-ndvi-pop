@@ -526,6 +526,7 @@ load("lookup_pop_cat_max_fac.RData")#load this look-up table for the figure
 lookup_pop_cat_max_fac
 names(pop_ndvi_gub_biome_tib)
 table(pop_ndvi_gub_biome_tib$pop_cat_max_fac)
+
 hia_summary_pop_cat_max_fac = pop_ndvi_gub_biome_tib %>% 
   filter(ndvi_tertile<3) %>%   #exclude top NDVI tertile throughout
   group_by(pop_cat_max_fac) %>% 
@@ -550,7 +551,53 @@ hia_summary_pop_cat_max_fac %>%
     n_d_ac_prev_crude_gbd_per_100k_pop_pt,
     n_d_ac_prev_crude_gbd_per_100k_pop_min_over_9,
     n_d_ac_prev_crude_gbd_per_100k_pop_max_over_9
-  ) %>%  View()
+  )# %>%  View()
+
+names(hia_summary_pop_cat_max_fac)
+#why are we getting weird results for the CIs?
+#Min is the max and max is the min. But only for certain pop. density categories..
+#Can't track down why. Flip them in the table as needed.
+#are there cells for which the upper limit is missing but the lower limit is not?
+#No, those don't exist. Same either way..
+# pop_ndvi_gub_biome_tib %>% 
+#   filter(is.na(n_d_na_prev_crude_who_max_over_9)==T) %>% 
+# #  filter(is.na(n_d_na_prev_crude_who_min_over_9)==T) %>% 
+#   dplyr::select(pop_cat_max_fac,n_d_na_prev_crude_who_mean_pt,
+#                 n_d_na_prev_crude_who_min_over_9,
+#                 n_d_na_prev_crude_who_max_over_9)
+
+#are there cells for which n_d_na_prev_crude_who_min_over_9 is greater than the max?
+names(pop_ndvi_gub_biome_tib)
+#Yes, there are some. why?
+#It must be because there are a few categories where the max becomes lower than the min
+#based on the pop. adjustment factor
+#July 22, 2024: I figured out why. See analysis-global.R code. It was because there
+#were instances where the max was adjusted below the min.
+pop_ndvi_gub_biome_tib %>% 
+  mutate(
+    n_d_na_prev_crude_who_min_gt_max=case_when(
+    n_d_na_prev_crude_who_min_over_9>n_d_na_prev_crude_who_max_over_9~1,
+    TRUE~0
+  )) %>% 
+  filter(n_d_na_prev_crude_who_min_gt_max==1) %>% 
+  dplyr::select(
+    pop_cat_max_fac,
+    contains("country_name"),
+    contains("pop_cat_mean_val_scaled"),
+    contains("n_d_na_prev_crude_who_mean_pt"),
+    n_d_na_prev_crude_who_min_over_9,
+    n_d_na_prev_crude_who_max_over_9,
+    contains("ndvi_diff")
+  )# %>% View()
+
+hia_summary_pop_cat_max_fac %>% 
+#  filter(pop_cat_max_fac=="5000") %>% 
+  dplyr::select(
+    pop_cat_max_fac,
+    contains("n_d_na_prev_crude_who_mean_pt"),
+             n_d_na_prev_crude_who_min_over_9,
+             n_d_na_prev_crude_who_max_over_9
+  )
 
 #Dec 1, 2023: Here, Pier asks for the baseline number of deaths.
 #What do they look like?
@@ -637,6 +684,16 @@ hia_summary_biome %>%
 
 hia_summary_biome %>% 
   dplyr::select(biome_name_imp, starts_with("ndvi_diff")) %>% View()
+
+#Do we get the strange flipped results by biome as well?
+hia_summary_biome %>% 
+  dplyr::select(
+    biome_name_imp,
+    contains("n_d_na_prev_crude_who_mean_pt"),
+    n_d_na_prev_crude_who_min_over_9,
+    n_d_na_prev_crude_who_max_over_9
+  )
+
 ### Figure: biome x age-standardized death rate---------
 
 #define the upper limit of the y-axis

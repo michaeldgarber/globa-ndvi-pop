@@ -130,7 +130,7 @@ country_pop_ls_un %>%
   ggplot(aes(x=ratio_pop_un_v_pop_cat_max_ls))+
   geom_histogram()
 
-#Intersting: so, maybe you can keep the min as is,
+#Interesting: so, maybe you can keep the min as is,
 #as the ratio of the true pop and the min is such that
 #the true pop is higher than the min, which we'd expect.
 #Just scale the max.
@@ -138,6 +138,7 @@ summary(country_pop_ls_un$ratio_pop_un_v_pop_cat_min_ls)
 country_pop_ls_un %>% 
   ggplot(aes(x=ratio_pop_un_v_pop_cat_min_ls))+
   geom_histogram()
+
 #Nov 19, 2023
 #I shouldn't use the mean; it's pointless at this stage. I can
 #take the mean of the two estimates later.
@@ -638,9 +639,19 @@ pop_ndvi_gub_biome_tib = pop_ndvi_gub_biome_tib_gub_not_miss %>%
     #recalculate the mean based on this weight and make
     #changes in the analysis function accordingly
     #Note from Jan 17, 2024: this uses UN population data. That's good.
-    pop_cat_max_val_adj=pop_cat_max_val*ratio_pop_un_v_pop_cat_max_ls,
-    #Now the mean can be adjusted based on that and the true min
-    pop_cat_mean_val_adj=(pop_cat_max_val_adj+pop_cat_min_val)/2
+    pop_cat_max_val_adj_int=pop_cat_max_val*ratio_pop_un_v_pop_cat_max_ls
+  ) %>% 
+  #July 22, 2024: there are a few instances where this takes the max
+  #below the min. I need to change that so that downstream calculations make sense.
+  rowwise() %>% 
+  mutate(
+    pop_cat_min_val_adj=min(pop_cat_min_val,pop_cat_max_val_adj_int),
+    pop_cat_max_val_adj=max(pop_cat_min_val,pop_cat_max_val_adj_int),
+  ) %>% 
+  ungroup() %>% 
+  mutate(
+    #Now the mean can be adjusted based on the mean of those two values
+    pop_cat_mean_val_adj=(pop_cat_max_val_adj+pop_cat_min_val_adj)/2
   ) %>% 
   #link area and population of the global urban boundary.
   #only include gubs above 5 square km and above 1,000 residents (min per landscan)
@@ -660,6 +671,12 @@ save(pop_ndvi_gub_biome_tib, file = "pop_ndvi_gub_biome_tib.RData")
 
 ### Checks-----
 #how do the filters affect the number of rows?
+#July 22, 2024: does my adjusted min work better?
+# pop_ndvi_gub_biome_tib %>% 
+#   dplyr::select(contains("pop_cat_min_val"),contains("pop_cat_max_val")) %>% 
+#   View()
+#     
+
 #July 18, 2024: after the filter excluding countries with missing WHO mortality data:
 nrow(pop_ndvi_gub_biome_tib)
 names(pop_ndvi_gub_biome_tib)

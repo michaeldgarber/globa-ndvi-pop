@@ -136,14 +136,17 @@ mutate_steps_hia_ndvi_pop = function(df){
       #Note that pop_prop_30_plus_who_pt is non-missing in 184 countries,
       #while pop_prop_30_plus_gbd_pt is non-missing in 204 countries.
       
+      #July 22, 2024: updating with adjusted minimum as well so that
+      #minimum is always below maximum. See analysis-global.R code for details
+      
       #WHO
       pop_cat_mean_val_scaled_who = pop_cat_mean_val_adj*pop_prop_30_plus_who_pt,
-      pop_cat_min_val_scaled_who = pop_cat_min_val*pop_prop_30_plus_who_pt,#unchanged min
+      pop_cat_min_val_scaled_who = pop_cat_min_val_adj*pop_prop_30_plus_who_pt,#unchanged min
       pop_cat_max_val_scaled_who = pop_cat_max_val_adj*pop_prop_30_plus_who_pt,
       
       #GBD version. use point estimate (don't worry about lower, upper limits of pop.)
       pop_cat_mean_val_scaled_gbd = pop_cat_mean_val_adj*pop_prop_30_plus_gbd_pt,
-      pop_cat_min_val_scaled_gbd = pop_cat_min_val*pop_prop_30_plus_gbd_pt,#unchanged min
+      pop_cat_min_val_scaled_gbd =pop_cat_min_val_adj*pop_prop_30_plus_gbd_pt,#unchanged min
       pop_cat_max_val_scaled_gbd = pop_cat_max_val_adj*pop_prop_30_plus_gbd_pt,
       
       #a factor version of these
@@ -378,7 +381,8 @@ mutate_steps_hia_ndvi_pop = function(df){
       # WHO only
       #age-standardized
       #Updating this July 2, 2024 to consider imputation uncertainty
-      n_d_na_prev_std_who_mean_pt = paf_na_pt*n_d_na_0_std_who_mean*-1, #multiply by -1 so it's prevented deaths
+      #multiply by -1 so it's prevented deaths
+      n_d_na_prev_std_who_mean_pt = paf_na_pt*n_d_na_0_std_who_mean*-1, 
       n_d_na_prev_std_who_mean_ul = paf_na_sl*n_d_na_0_std_who_mean*-1,  
       n_d_na_prev_std_who_mean_ll = paf_na_wl*n_d_na_0_std_who_mean*-1,  
       
@@ -557,6 +561,8 @@ hia_summarise = function(df){
       n_d_ac_prev_crude_who_max_pt=sum(n_d_ac_prev_crude_who_max_pt,na.rm=TRUE),
       
       #non-accidental
+      #July 22, 2024: I'm getting strange results when I summarize certain pop. density
+      #categories. Try renaming
       n_d_na_prev_crude_who_mean_pt = sum(n_d_na_prev_crude_who_mean_pt, na.rm=TRUE),
       n_d_na_prev_crude_who_min_over_9 = sum(n_d_na_prev_crude_who_min_over_9, na.rm=TRUE),
       n_d_na_prev_crude_who_max_over_9 = sum(n_d_na_prev_crude_who_max_over_9, na.rm=TRUE),
@@ -595,7 +601,6 @@ hia_summarise = function(df){
       ndvi_diff_pd_med = median(ndvi_diff_pd, na.rm=TRUE),
       ndvi_diff_pd_25th = quantile(ndvi_diff_pd, probs=c(0.25), na.rm=TRUE),
       ndvi_diff_pd_75th = quantile(ndvi_diff_pd, probs=c(0.75), na.rm=TRUE),
-      
       
 
       #Oct 10, 2023: I have a hunch this is why my various ways of
@@ -706,7 +711,8 @@ hia_summarise = function(df){
       pop_cat_mean_val_scaled_bottom_tertiles_ratio=
         pop_cat_mean_val_scaled_bottom_tertiles/pop_cat_mean_val,
       
-      paf_ac_rate_pt_mean_bottom_tertiles=pop_cat_mean_val_scaled_bottom_tertiles_ratio*paf_ac_rate_pt_mean
+      paf_ac_rate_pt_mean_bottom_tertiles=
+        pop_cat_mean_val_scaled_bottom_tertiles_ratio*paf_ac_rate_pt_mean
 
     )
 }

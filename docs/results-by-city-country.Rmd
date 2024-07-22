@@ -1,5 +1,5 @@
 ---
-title: "Urban greening results by urban area and country"
+title: "Results by urban area and country"
 author: "Michael D Garber"
 date: "`r Sys.Date()`"
 output:
@@ -66,7 +66,7 @@ hia_summary_country %>%
   DT::datatable(
     colnames = c(
       "Country name", 
-      "Age-standardized deaths prevented per 100k adults 20+",
+       "Age-standardized non-accidental deaths prevented per 100k adults 30+",
       "Lower 95% uncertainty limit",
       "Upper 95% uncertainty limit")
     ) 
