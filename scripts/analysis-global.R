@@ -278,6 +278,8 @@ load("lookup_gub_geonames_miss.RData")
 #whether there is a duplicate city name
 #I had lots of analysis steps in the HIA, but many ought to be done here
 
+#July 22, 2024: why not use the scaled populatoin values?
+
 lookup_gub_several_vars = pop_ndvi_gub_biome_tib_gub_not_miss %>% 
   group_by(ORIG_FID) %>% 
   summarise(
@@ -361,6 +363,7 @@ lookup_gub_several_vars = pop_ndvi_gub_biome_tib_gub_not_miss %>%
     #and corresponds to specific city boundaries
     pop_cat_breaks_city_either_source=cut(city_population_either_source, 
                      breaks=c(0,300000,500000,1000000,5000000,10000000, 25000000)),
+    
     #The second corresponds to the Atlas of Urban Expansion and we therefore use
     #the landscan population values. let's go with mean.
     #aue for atlas of urban expansion; ls for landscan
@@ -375,6 +378,7 @@ lookup_gub_several_vars = pop_ndvi_gub_biome_tib_gub_not_miss %>%
 
 setwd(here("data-processed"))
 save(lookup_gub_several_vars,file="lookup_gub_several_vars.RData")
+names(lookup_gub_several_vars)
 #Check on pop var
 lookup_gub_several_vars %>% 
   dplyr::select(ORIG_FID, starts_with("city_popul")) %>% 
@@ -429,9 +433,10 @@ city_name_country_name_dupe=lookup_gub_several_vars %>%
     city_name_country_name_dupe=1
   )
 nrow(city_name_country_name_dupe)
-
+city_name_country_name_dupe
 
 #okay, for presentation purposes, add this back into the main gub lookup table
+
 lookup_gub_several_vars_wrangle=lookup_gub_several_vars %>% 
   left_join(city_name_country_name_dupe,by="city_name_country_name") %>% 
   #a version that includes the admin only if it's a duplicate city-name-country name
@@ -606,22 +611,27 @@ names(pop_ndvi_gub_biome_tib_gub_not_miss)#note we don't have a measure of area
 load("countries_joined_with_un_pop_deaths_pared_nogeo.RData")
 names(countries_joined_with_un_pop_deaths_pared_nogeo)
 table(countries_joined_with_un_pop_deaths_pared_nogeo$who_data_missing_country)
+pop_ndvi_gub_biome_tib_gub_not_miss %>% 
+  group_by(country_name_en) %>% 
+  summarise(n=n())
 source(here("scripts", "rojas_green_space_drf.R")) #load dose-response info if needed
 pop_ndvi_gub_biome_tib = pop_ndvi_gub_biome_tib_gub_not_miss %>% 
+  filter(is.na(pop_cat_1_8)==FALSE) %>% #NAs throwing error
+  filter(ndvi_2019>0) %>% #exclude NDVI below 0 (water)
+  left_join(countries_joined_with_un_pop_deaths_pared_nogeo, by = "country_name_en") %>% 
+  #July 18, 2024: limit to countries with non-missing WHO mortality data
+  filter(who_data_missing_country==0) %>% 
+  
   bind_cols(rr_ac) %>%   #add DRF to every row (regardless of country)
   #this adds the RR corresponding to non-accidental deaths
   #as well as the NDVI increment
-  bind_cols(rr_na) %>% 
   #add number of deaths to every row (would be a left_join for more countries)
-  #just the USA here so could use bind_cols() but using left_join() for scalibility
-  left_join(countries_joined_with_un_pop_deaths_pared_nogeo, by = "country_name_en") %>% 
+  bind_cols(rr_na) %>% 
+  
   mutate(pixel_id = row_number()) %>% #row number for a given pixel
   mutate(area_km2_pixel=1) %>% #assume it's one I suppose Oct 10, 2023
-  filter(is.na(pop_cat_1_8)==FALSE) %>% #NAs throwing error
-  filter(ndvi_2019>0) %>% #exclude NDVI below 0 (water)
   
-  #July 18, 2024: limit to countries with non-missing WHO mortality data
-  filter(who_data_missing_country==0) %>% 
+
   #link in the city-biome lookup so that I can impute biomes
   #for pixels with missing biomes
   left_join(lookup_gub_biome_top, by = "ORIG_FID") %>% 
@@ -629,7 +639,9 @@ pop_ndvi_gub_biome_tib = pop_ndvi_gub_biome_tib_gub_not_miss %>%
   #of the most common biome for that city
   
   #Nov 19, 2023: add this weight on the LandScan population
-  left_join(lookup_country_name_en_ratio_pop_un_v_pop_cat_max_ls,by="country_name_en") %>% 
+  left_join(
+    lookup_country_name_en_ratio_pop_un_v_pop_cat_max_ls,
+            by="country_name_en") %>% 
   mutate(
     #imp for imputed (if necessary)
     biome_name_imp=case_when(
@@ -664,10 +676,18 @@ pop_ndvi_gub_biome_tib = pop_ndvi_gub_biome_tib_gub_not_miss %>%
   ungroup()
 
 #Done! 
-#Updated Jan 19, 2024
+#Updated July 25, 2024
 setwd(here("data-processed"))
 save(pop_ndvi_gub_biome_tib, file = "pop_ndvi_gub_biome_tib.RData")
 #load("pop_ndvi_gub_biome_tib.RData")
+pop_ndvi_gub_biome_tib
+n_distinct(pop_ndvi_gub_biome_tib$ORIG_FID)#15960
+n_distinct(pop_ndvi_gub_biome_tib$country_name_en)
+n_distinct(pop_ndvi_gub_biome_tib$country_name_en_original)
+table(pop_ndvi_gub_biome_tib$who_data_missing_country)
+
+#how many GUBs if we exclude top tertile, though?
+#see hia-summary for final count. it should be 15917
 
 ### Checks-----
 #how do the filters affect the number of rows?
@@ -676,6 +696,42 @@ save(pop_ndvi_gub_biome_tib, file = "pop_ndvi_gub_biome_tib.RData")
 #   dplyr::select(contains("pop_cat_min_val"),contains("pop_cat_max_val")) %>% 
 #   View()
 #     
+# pop_ndvi_gub_biome_tib %>% 
+#   group_by(country_name_en) %>% 
+#   summarise(n=n()) %>% 
+#   View()
+
+## look-up for adjusted pop values at GUB level------
+#I want a look-up that corresponds to the adjusted pop values at the GUB level
+lookup_gub_pop_cat_val_adj=pop_ndvi_gub_biome_tib %>% 
+  group_by(ORIG_FID) %>% 
+  summarise(
+    #have to name them something different so they can be joined
+    #without duplicating column names
+    pop_cat_mean_val_adj_gub = sum(pop_cat_mean_val_adj,na.rm=TRUE),
+    pop_cat_min_val_adj_gub = sum(pop_cat_min_val_adj,na.rm=TRUE),
+    pop_cat_max_val_adj_gub = sum(pop_cat_max_val_adj,na.rm=TRUE)
+  ) %>% 
+  ungroup() %>% 
+  mutate(
+    pop_cat_breaks_adj_gub_aue_ls=cut(
+      pop_cat_mean_val_adj_gub,
+      breaks=c(0,100000,427000,1570000,5715000,
+               round(max(pop_cat_mean_val_adj_gub))),#the maximum pop GUB
+      include.lowest = TRUE,
+      dig.lab = 9#avoid scientific notation
+    )
+  )
+
+
+
+max(lookup_gub_pop_cat_val_adj$pop_cat_mean_val_adj_gub)
+setwd(here("data-processed"))
+save(lookup_gub_pop_cat_val_adj, file = "lookup_gub_pop_cat_val_adj.RData")
+lookup_gub_pop_cat_val_adj
+
+lookup_gub_pop_cat_val_adj
+table(lookup_gub_pop_cat_val_adj$pop_cat_breaks_adj_gub_aue_ls)
 
 #July 18, 2024: after the filter excluding countries with missing WHO mortality data:
 nrow(pop_ndvi_gub_biome_tib)
@@ -686,6 +742,12 @@ table(pop_ndvi_gub_biome_tib$country_name_en)
 n_distinct(pop_ndvi_gub_biome_tib$country_name_en)
 n_distinct(pop_ndvi_gub_biome_tib$ORIG_FID)
 n_distinct(pop_ndvi_gub_biome_tib$biome_name_imp)
+
+#what are the countries with data?
+pop_ndvi_gub_biome_tib %>% 
+  group_by(country_name_en) %>% 
+  summarise(n=n()) %>% 
+  print(n=200)
 
 
 #How many cities have more than one biome?

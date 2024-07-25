@@ -36,6 +36,57 @@ gub %>%
 #gub %>% mapview() #great - works!
 #gub %>% plot()
 
+#Link gub with countries to be sure
+#This will take a while so be careful
+gub_link_with_countries=gub %>% 
+  st_intersection(countries)
+gub_link_with_countries_nogeo=gub_link_with_countries %>% 
+  st_set_geometry(NULL) %>% 
+  as_tibble()
+
+
+names(gub_link_with_countries_nogeo)
+countries_in_gub_data_iso_a3=gub_link_with_countries_nogeo %>% 
+  group_by(iso_a3) %>% 
+  summarise(n=n()) %>% 
+  ungroup() %>% 
+  rename(iso3_alpha_code=iso_a3) %>% 
+  mutate(gub_present=1)
+
+#how many countries with un data?
+names(un_pop_deaths_2019)
+nrow(un_pop_deaths_2019)
+un_pop_deaths_2019
+nrow(un_pop_deaths_2019)
+names(un_pop_deaths_2019)
+un_pop_deaths_2019 %>% 
+  left_join(countries_in_gub_data_iso_a3,by="iso3_alpha_code") %>% 
+  group_by(gub_present) %>% 
+  summarise(n=n())
+un_pop_deaths_2019 %>% 
+  left_join(countries_in_gub_data_iso_a3,by="iso3_alpha_code") %>% 
+  filter(is.na(gub_present)==T) %>% 
+  dplyr::select(contains("name")) %>% 
+  View()
+n_distinct(un_pop_deaths_2019$iso3_alpha_code)
+gub_link_with_countries %>% 
+  st_set_geometry(NULL) %>% 
+  as_tibble() %>%
+  group_by(name_en) %>% 
+  summarise(n=n()) %>% 
+  print(n=200)
+
+#confirm no data for british virgin islands?
+countries
+countries_bvi=countries %>% 
+  filter(name_long=="British Virgin Islands")
+
+gub_bvi=gub %>% 
+  st_intersection(countries_bvi)
+
+nrow(cities_simplemaps_pro)
+
+
 ## Lookups and modified versions-------
 #a version without geometry for presentations
 gub_nogeo = gub %>% 
@@ -124,6 +175,12 @@ gub_city_name_simplemaps_nogeo %>%
   mutate(
     n_total=sum(n),
     prop=n/n_total)
+
+#number of distinct countries in GUB data
+gub_city_name_simplemaps_nogeo %>% 
+  group_by(country_name_simplemaps) %>% 
+  summarise(n=n())
+
 ### check missing names-----
 #checks
 table(gub_city_name_simplemaps_nogeo$city_name_simplemaps_miss)
@@ -220,21 +277,23 @@ save(lookup_gub_city_name_simplemaps_miss_geonames_present,
 names(lookup_gub_city_name_simplemaps_miss_geonames_present)
 nrow(lookup_gub_city_name_simplemaps_miss_geonames_present)
 
+lookup_gub_city_name_simplemaps_miss_geonames_present
 
 
-# Check out specific cities--------
+# Checks ---------
+## Check out specific cities------out specific cities--------
 
-## Tokyo----
+### Tokyo----
 # What ORIG_FID is Tokyo?
 gub_city_name_geonames %>% 
   filter(city_name_geonames == "Tokyo")#2238
 
-## Schenzhen-----
+### Schenzhen-----
 #What city does 2238 correspond to? It has a very large area
 gub_city_name_geonames %>% 
   filter(ORIG_FID == "2238") #Shenzhen
 
-## New York City v. Manhattan-------
+### New York City v. Manhattan-------
 #For the example, I should do New York.
 #Which city is New York?
 #begin with pixels of new york, then summarize to new york, etc
@@ -245,7 +304,8 @@ gub %>%
   filter(ORIG_FID=="60310") %>% 
   mapview()
 
-
+cities_simplemaps_pro %>%
+  filter(city_name_simplemaps=="Karaj")
 cities_simplemaps_pro %>% 
   filter(city_name_simplemaps=="New York") %>% 
   mapview()
@@ -279,6 +339,195 @@ gub_city_name_geonames %>%
 gub %>% 
   filter(ORIG_FID=="55685") %>% 
   mapview()
+
+
+## Reviewer 2 comment - Iranian cities-------
+## Reviewer 2 comment: why do these cities not appera?
+#e.g., in Iran There is no data for Ahvaz [Ahwaz] or #
+#Yazd or Karaj, but for a very small city of Hashtgerd). 
+cities_simplemaps_pro %>%
+  filter(city_name_simplemaps=="Karaj") %>% 
+  mapview()
+
+#The reason Karaj is not included is presumably because it falls into Tehran
+setwd(here("data-processed"))
+load("gub_city_name_simplemaps_nogeo.RData")
+gub_city_name_simplemaps_nogeo %>% 
+  filter(city_name_simplemaps=="Tehran")
+
+
+load("gub.RData")
+gub %>% 
+  filter(ORIG_FID==32914) %>% 
+  mapview()
+
+cities_simplemaps_pro %>%
+  filter(city_name_simplemaps=="Yazd") %>% 
+  mapview()
+gub_city_name_simplemaps_nogeo %>% 
+  filter(city_name_simplemaps=="Yazd")
+
+yazd_city_name=cities_simplemaps_pro %>%
+  filter(city_name_simplemaps=="Yazd")
+
+
+#what about Yazd?
+# yazd_city_name %>% 
+#   st_intersection(gub) %>% 
+#   mapview()
+#It looks like Yazd is not in the data.
+#Let's see what data we have over Iran
+load("gub_city_name_geonames.RData")
+
+#interestingly..no GUB data?
+#let's check out the GUB data over Iran
+#From the read-boundaries-states-countries.R code, we have country boundaries
+names(countries)
+iran_geo=countries %>% 
+  filter(name_en=="Iran") %>% 
+  dplyr::select(name_en) %>% 
+  rename(country_name_en=name_en)
+
+gubs_in_iran=gub %>% 
+  st_intersection(iran_geo)
+
+#No GUBs for Yazd, Iran
+gubs_in_iran %>% mapview()
+
+gub_city_name_geonames %>% 
+  filter(country_name_simplemaps=="Iran")
+
+
+## Intersect GUBs with geonames cities--------
+
+#how many in the geonames data don't have a match in gub?
+nrow(cities_geonames)
+cities_geonames_intersect_gub=cities_geonames %>% 
+  st_intersection(gub) %>% 
+  mutate(geoname_intersects_gub=1)
+
+
+nrow(cities_geonames)
+nrow(cities_geonames_intersect_gub)
+#Use the geonames dataset of cities with a population above 1,000
+
+cities_geonames_intersect_gub_nogeo=cities_geonames_intersect_gub %>% 
+  st_set_geometry(NULL) %>% 
+  as_tibble() %>% 
+  mutate(geoname_intersects_gub=1) %>% 
+  dplyr::select(geoname_id,geoname_intersects_gub)
+
+names(cities_geonames)
+
+cities_geonames %>% 
+  filter(country_name_geonames=="United States") %>% 
+  mapview()
+cities_geonames %>% 
+  st_set_geometry(NULL) %>% 
+  as_tibble() %>% 
+  left_join(cities_geonames_intersect_gub_nogeo,by="geoname_id") %>% 
+  mutate(geoname_is_in_gub=case_when(
+    geoname_intersects_gub==1~1,
+    TRUE~0
+  )) %>% 
+  group_by(geoname_is_in_gub) %>% 
+  summarise(n=n())
+
+cities_geoname_whether_intersects_gub=cities_geonames %>% 
+  st_set_geometry(NULL) %>% 
+  as_tibble() %>% 
+  left_join(cities_geonames_intersect_gub_nogeo,by="geoname_id") %>% 
+  mutate(geoname_is_in_gub=case_when(
+    geoname_intersects_gub==1~1,
+    TRUE~0
+  )) 
+
+#save this so I can load it elsewhere
+setwd(here("data-processed"))
+save(cities_geoname_whether_intersects_gub, 
+     file = "cities_geoname_whether_intersects_gub.RData")
+
+
+#This analysis also exists in supp-tables
+cities_geoname_whether_intersects_gub_country_summary=cities_geoname_whether_intersects_gub %>% 
+  group_by(country_name_geonames,geoname_is_in_gub) %>% 
+  summarise(
+    n_cities=n(),
+    city_pop_geonames_sum=sum(city_population_geonames,na.rm=T),
+    city_pop_geonames_mean=mean(city_population_geonames,na.rm=T)) %>% 
+  ungroup() %>% 
+  group_by(country_name_geonames) %>% 
+  mutate(n_total_cities=sum(n_cities,na.rm=T),
+         prop_of_cities=n_cities/n_total_cities,
+         city_pop_geonames_sum_country=sum(city_pop_geonames_sum,na.rm=T),
+         prop_of_pop=city_pop_geonames_sum/city_pop_geonames_sum_country
+         ) %>% 
+  ungroup()
+
+cities_geoname_whether_intersects_gub_country_summary
+
+
+#save this so I can print it as a table
+setwd(here("data-processed"))
+save(cities_geoname_whether_intersects_gub_country_summary, 
+     file = "cities_geoname_whether_intersects_gub_country_summary.RData")
+
+
+cities_geoname_whether_intersects_gub_country_summary %>% 
+  arrange(country_name_geonames) %>% 
+  print(n=400)
+
+
+cities_geoname_whether_intersects_gub_country_summary %>% 
+  dplyr::select(
+    contains("country_name"),
+    geoname_is_in_gub, n_cities, contains("prop"),contains("mean")) %>% 
+  print(n=200)
+
+cities_geoname_whether_intersects_gub_country_summary %>% 
+#  filter(geoname_is_in_gub==1) %>% 
+  arrange(prop) %>% 
+  print(n=200)
+
+
+#visualize them
+lookup_geoname_is_in_gub=cities_geoname_whether_intersects_gub %>% 
+  dplyr::select(geoname_id, contains("gub"))
+
+table(lookup_geoname_is_in_gub$geoname_is_in_gub)
+#how do those cities without a GUB look in the US?
+cities_geonames %>% 
+  left_join(lookup_geoname_is_in_gub,by="geoname_id") %>% 
+  filter(country_name_geonames=="United States") %>% 
+  mutate(geoname_is_in_gub_char=as.character(geoname_is_in_gub)) %>% 
+  mapview(zcol="geoname_is_in_gub_char")
+
+#How do they look in Iran?
+table(cities_geonames$country_name_geonames)
+cities_geonames %>% 
+  left_join(lookup_geoname_is_in_gub,by="geoname_id") %>% 
+  filter(country_name_geonames=="Iran, Islamic Rep. of") %>% 
+  mutate(geoname_is_in_gub_char=as.character(geoname_is_in_gub)) %>% 
+  mapview(zcol="geoname_is_in_gub_char")
+
+#How many countries are represented in the GUB data?
+n_distinct(cities_geonames$country_name_geonames)
+cities_geonames
+cities_geoname_whether_intersects_gub_country_summary %>% 
+  group_by(geoname_is_in_gub)
+
+#174 of the 230 have any data
+cities_geoname_whether_intersects_gub %>% 
+  filter(geoname_is_in_gub==1) %>% 
+  group_by(country_name_geonames) %>% 
+  summarise(n=n()) %>% 
+  nrow()
+
+cities_geoname_whether_intersects_gub %>% 
+  filter(geoname_is_in_gub==1) %>% 
+  group_by(country_name_geonames) %>% 
+  summarise(n=n()) %>% 
+  print(n=200)
 
 # Restrict to Colorado-----
 source(here("scripts", "read-boundaries-states-countries.R")) 

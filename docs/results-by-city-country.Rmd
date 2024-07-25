@@ -29,7 +29,8 @@ hia_summary_gub %>%
       n_d_na_prev_std_who_per_100k_max_over_9_round=round(n_d_na_prev_std_who_per_100k_pop_max_over_9)
   ) %>% 
   dplyr::select(
-    city_name_admin_code_country_name,ends_with("round")
+    city_name_admin_code_country_name,
+    ends_with("round")
   ) %>% 
   arrange(desc(n_d_na_prev_std_who_per_100k_pop_pt_round)) %>% 
   #Note column names can be changed

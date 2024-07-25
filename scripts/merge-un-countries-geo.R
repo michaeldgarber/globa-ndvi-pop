@@ -5,7 +5,7 @@
 #Re-running January 17, 2024 after having updated
 # Source scripts----
 library(here)
-#source(here("scripts", "read-united-nations-gbd-data.R")) #formerly called read-united-nations-deaths.R
+source(here("scripts", "read-united-nations-gbd-data.R")) #formerly called read-united-nations-deaths.R
 source(here("scripts", "read-boundaries-states-countries.R"))
 
 # Initial checks----
@@ -18,9 +18,6 @@ names(countries)
 nrow(countries)
 
 #How many rows in the UN data?
-nrow(un_pop_deaths_2019)
-table(un_pop_deaths_2019$region_subregion_country_or_area)
-un_pop_deaths_2019
 
 # Merge-------
 names(un_pop_deaths_2019)
@@ -111,6 +108,13 @@ save(countries_joined_with_un_pop_deaths_pared_nogeo,
      file="countries_joined_with_un_pop_deaths_pared_nogeo.RData")
 
 names(countries_joined_with_un_pop_deaths_pared_nogeo)
+
+#are there any that do have WHO data but are a 0 in the who data missing variable?
+countries_joined_with_un_pop_deaths_pared_nogeo %>% 
+  filter(who_data_missing_country==0) %>% 
+  group_by(country_name_en) %>% 
+  summarise(n=n()) %>% 
+  print(n=200)
 
 # Restrict to USA for some analyses------
 countries_joined_with_un_pop_deaths_pared_usa = countries_joined_with_un_pop_deaths %>% 

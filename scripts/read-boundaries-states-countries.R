@@ -113,7 +113,7 @@ countries = rnaturalearth::ne_countries(
     )
   )
 
-names(countries)
+
 
 ## Define a look-up for income group-----
 #See comments below  - using data already in the countries file for now Mar 7 2023
@@ -333,6 +333,7 @@ cities_geonames %>%
   filter(country_name_geonames=="United States") %>% 
   View()
 
+## Lookups for geonames---------
 #lookup for all geonames vars from the id
 lookup_all_vars_geonames_nogeo=cities_geonames %>% 
   st_set_geometry(NULL) 
@@ -357,6 +358,31 @@ lookup_geoname_id_country_name = cities_geonames %>%
   st_set_geometry(NULL) %>% 
   distinct(geoname_id,country_name_geonames)
 
+
+### Lookup between geonames data and country isoa3 code-------
+#July 24, 2024
+#I need this to summarize the comparison between GUB and geonames by
+#World Bank Class
+#This requires a spatial join.
+names(countries)
+names(cities_geonames)
+cities_geonames_country_intersect=cities_geonames %>% 
+  st_join(countries)
+
+nrow(cities_geonames_country_intersect)
+nrow(cities_geonames)
+names(cities_geonames_country_intersect)
+lookup_geonames_country_iso_a3_wb_class=cities_geonames_country_intersect %>% 
+  st_set_geometry(NULL) %>% 
+  as_tibble() %>% 
+  dplyr::select(geoname_id,contains("iso_a3"),contains("income_grp"))
+
+lookup_geonames_country_iso_a3_wb_class %>% 
+  print(n=100)
+
+setwd(here("data-processed"))
+save(lookup_geonames_country_iso_a3_wb_class, 
+     file = "lookup_geonames_country_iso_a3_wb_class.RData")
 
 
 # Read City of Chicago data for example-----

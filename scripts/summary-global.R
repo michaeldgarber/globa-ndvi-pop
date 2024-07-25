@@ -37,6 +37,8 @@ load("lookup_gub_pop_area.RData")
 names(lookup_gub_several_vars_wrangle)
 table(pop_ndvi_gub_biome_tib$ndvi_tertile)
 names(pop_ndvi_gub_biome_tib)
+pop_ndvi_gub_biome_tib %>% 
+  filter(country_name_en=="Palestine")
 hia_summary_gub= pop_ndvi_gub_biome_tib %>% 
   filter(ndvi_tertile<3) %>%   #exclude top NDVI tertile throughout
   group_by(ORIG_FID) %>% 
@@ -74,15 +76,47 @@ hia_summary_gub= pop_ndvi_gub_biome_tib %>%
   arrange(desc(n_d_na_prev_std_who_per_100k_pop_pt)) %>% 
   mutate(
     order=row_number()
-  )
+  ) %>% 
+  #July 22, 2024
+  #add in this pop. category based on the adjusted landsacn value
+  left_join(lookup_gub_pop_cat_val_adj,by="ORIG_FID") %>% 
+  #July 25, 2024: to make sure this is clean, exclude these 6 GUBs that seem to
+  #somehow appear again even though their country should have missing WHO data
+  left_join(lookup_who_data_missing_country,by="country_name_en") %>% 
+  filter(who_data_missing_country==0)
 
 setwd(here("data-processed"))
 save(hia_summary_gub,file="hia_summary_gub.RData")
+names(hia_summary_gub)
+nrow(hia_summary_gub)
+#why are we still getting some in Palestine?
+hia_summary_gub %>% 
+  mutate(palestine=case_when(
+    grepl("Palestine", 	city_name_admin_code_country_name) ~  1,
+    TRUE~0
+  )) %>% 
+  filter(palestine==1) %>% 
+  group_by(country_name_en) %>% 
+  summarise(n=n())
+#The reason is some of them are in Israel or "West Bank". Basically...territorial disputes
+#okay, maybe I should put the country_name_en in the country name then so it doesn't get confused
 
-hia_summary_gub %>% View()
+#good. now there are none here.
+# hia_summary_gub %>%
+#   left_join(lookup_who_data_missing_country,by="country_name_en") %>%
+#   filter(who_data_missing_country==1) %>%
+#   View()
+
+#there are 37 missing this and 6 with it missing...these are excluded now
+hia_summary_gub %>% 
+  group_by(who_data_missing_country) %>% 
+  summarise(n=n())
+
+#checks
 nrow(hia_summary_gub)
 n_distinct(hia_summary_gub$ORIG_FID)
 names(hia_summary_gub)
+city_name_admin_code_country_name
 hia_summary_gub %>%
   arrange(desc(n_d_na_prev_std_who_per_100k_pop_pt)) %>%
   dplyr::select(
@@ -144,6 +178,10 @@ hia_summary_gub %>%
 #Why are there still some with zero values for the scaled population?
 # I assume these are the cities without UN data and thus without a scale factor.
 #Let's check.
+#July 25, 2024: why are some of the countries without mortality data
+#still in this dataset? Hmm
+hia_summary_gub %>% 
+  
 setwd(here("data-processed"))
 load("lookup_gub_geoname_id.RData")
 names(hia_summary_gub)
@@ -186,7 +224,7 @@ hia_summary_gub_city_name_simplemaps_miss %>%
   geom_histogram()
 
 hia_summary_gub_city_name_simplemaps_miss %>% 
-  group_by(pop_cat_breaks_gub_aue_ls) %>% 
+  group_by(pop_cat_breaks_adj_gub_aue_ls) %>% 
   summarise(n=n())
 
 #One with lots of deaths prevented is missing
@@ -217,7 +255,7 @@ hia_summary_gub_geo %>%
   st_point_on_surface() %>% 
   #  st_centroid() %>%  
   dplyr::select(contains("name"), contains("breaks")) %>% 
-  mapview(zcol="pop_cat_breaks_gub_aue_ls")
+  mapview(zcol="pop_cat_breaks_adj_gub_aue_ls")
 
 
 
@@ -242,7 +280,8 @@ hia_summary_gub %>%
   mutate(dummy=1) %>% 
   group_by(dummy) %>% 
   summarise(
-  max_n_d_na_prev_std_who_per_100k_pop_max_over_9=max(n_d_na_prev_std_who_per_100k_pop_max_over_9,na.rm=T)
+  max_n_d_na_prev_std_who_per_100k_pop_max_over_9=max(
+    n_d_na_prev_std_who_per_100k_pop_max_over_9,na.rm=T)
   )
 max(hia_summary_gub$n_d_na_prev_std_who_per_100k_pop_max_over_9)
 ggplot_top_n_gub_by_n_death_prev_per_100k = function(df){
@@ -271,7 +310,7 @@ hia_summary_gub %>%
 
 
 ### Facet top n by city size---------
-table(hia_summary_gub$pop_cat_breaks_gub_aue_ls)
+table(hia_summary_gub$pop_cat_breaks_adj_gub_aue_ls)
 hia_summary_gub %>% 
   filter(is.na(city_name_either_source)==F) %>% 
   filter(is.na(n_d_na_prev_std_who_per_100k_pop_pt)==F) %>% 
@@ -279,27 +318,31 @@ hia_summary_gub %>%
   slice(1:100) %>% #take top n
   ggplot_top_n_gub_by_n_death_prev_per_100k()+
   facet_grid(
-    cols = vars(pop_cat_breaks_gub_aue_ls))
+    cols = vars(pop_cat_breaks_adj_gub_aue_ls))
 
 ### Top n, sep. figure for each city size--------
 #This works okay, but is a bit unclear.
 #Can try instead just a filter
-pop_cat_breaks_gub_aue_ls_levels=hia_summary_gub %>% 
-  group_by(pop_cat_breaks_gub_aue_ls) %>% 
+#July 22, 2024: updating with new pop. cats
+names(hia_summary_gub)
+table(hia_summary_gub$pop_cat_breaks_adj_gub_aue_ls)
+pop_cat_breaks_adj_gub_aue_ls_levels=hia_summary_gub %>% 
+  group_by(pop_cat_breaks_adj_gub_aue_ls) %>% 
   summarise(n=n()) %>% 
   ungroup()
-pop_cat_breaks_gub_aue_ls_levels
-pop_cat_breaks_gub_aue_ls_levels$pop_cat_breaks_gub_aue_ls[1]
-pop_cat_breaks_gub_aue_ls_levels$pop_cat_breaks_gub_aue_ls[2]
-pop_cat_breaks_gub_aue_ls_levels$pop_cat_breaks_gub_aue_ls[3]
-pop_cat_breaks_gub_aue_ls_levels$pop_cat_breaks_gub_aue_ls[4]
-pop_cat_breaks_gub_aue_ls_levels$pop_cat_breaks_gub_aue_ls[5]
+pop_cat_breaks_adj_gub_aue_ls_levels
+pop_cat_breaks_adj_gub_aue_ls_levels
+pop_cat_breaks_adj_gub_aue_ls_levels$pop_cat_breaks_adj_gub_aue_ls[1]
+pop_cat_breaks_adj_gub_aue_ls_levels$pop_cat_breaks_adj_gub_aue_ls[2]
+pop_cat_breaks_adj_gub_aue_ls_levels$pop_cat_breaks_adj_gub_aue_ls[3]
+pop_cat_breaks_adj_gub_aue_ls_levels$pop_cat_breaks_adj_gub_aue_ls[4]
+pop_cat_breaks_adj_gub_aue_ls_levels$pop_cat_breaks_adj_gub_aue_ls[5]
 
 #### Pop dens cat 5-------
 hia_summary_gub %>% 
   filter(is.na(n_d_na_prev_std_who_per_100k_pop_pt)==F) %>% 
   #filter to the first level, second level, etc.
-  filter(pop_cat_breaks_gub_aue_ls==pop_cat_breaks_gub_aue_ls_levels$pop_cat_breaks_gub_aue_ls[5]) %>% 
+  filter(pop_cat_breaks_adj_gub_aue_ls==pop_cat_breaks_adj_gub_aue_ls_levels$pop_cat_breaks_adj_gub_aue_ls[5]) %>% 
   arrange(desc(n_d_na_prev_std_who_per_100k_pop_pt)) %>% 
   slice(1:50) %>% #take top n
   ggplot_top_n_gub_by_n_death_prev_per_100k()
@@ -314,7 +357,7 @@ names(hia_summary_gub)
 hia_summary_gub %>% 
   filter(is.na(n_d_na_prev_std_who_per_100k_pop_pt)==F) %>% 
   #filter to the first level, second level, etc.
-  filter(pop_cat_breaks_gub_aue_ls==pop_cat_breaks_gub_aue_ls_levels$pop_cat_breaks_gub_aue_ls[5]) %>% 
+  filter(pop_cat_breaks_adj_gub_aue_ls==pop_cat_breaks_adj_gub_aue_ls_levels$pop_cat_breaks_adj_gub_aue_ls[5]) %>% 
   arrange(desc(n_d_na_prev_std_who_per_100k_pop_pt)) %>% 
   slice(1:50) %>% #take top n
   dplyr::select(
@@ -330,7 +373,7 @@ hia_summary_gub %>%
 #### Pop dens cat 4-------
 hia_summary_gub %>% 
   filter(is.na(n_d_na_prev_std_who_per_100k_pop_pt)==F) %>% 
-  filter(pop_cat_breaks_gub_aue_ls==pop_cat_breaks_gub_aue_ls_levels$pop_cat_breaks_gub_aue_ls[4]) %>% 
+  filter(pop_cat_breaks_adj_gub_aue_ls==pop_cat_breaks_adj_gub_aue_ls_levels$pop_cat_breaks_adj_gub_aue_ls[4]) %>% 
   arrange(desc(n_d_na_prev_std_who_per_100k_pop_pt)) %>% 
   slice(1:50) %>% #take top n
   ggplot_top_n_gub_by_n_death_prev_per_100k()
@@ -341,7 +384,7 @@ ggsave("plot_n_d_na_prev_std_per_100k_x_city_pop_cat_4.png", height=10, width=5)
 hia_summary_gub %>% 
   filter(is.na(n_d_na_prev_std_who_per_100k_pop_pt)==F) %>% 
   #filter to the first level, second level, etc.
-  filter(pop_cat_breaks_gub_aue_ls==pop_cat_breaks_gub_aue_ls_levels$pop_cat_breaks_gub_aue_ls[4]) %>% 
+  filter(pop_cat_breaks_adj_gub_aue_ls==pop_cat_breaks_adj_gub_aue_ls_levels$pop_cat_breaks_adj_gub_aue_ls[4]) %>% 
   arrange(desc(n_d_na_prev_std_who_per_100k_pop_pt)) %>% 
   slice(1:50) %>% #take top n
   dplyr::select(
@@ -354,7 +397,7 @@ hia_summary_gub %>%
 #### Pop dens cat 3-------
 hia_summary_gub %>% 
   filter(is.na(n_d_na_prev_std_who_per_100k_pop_pt)==F) %>% 
-  filter(pop_cat_breaks_gub_aue_ls==pop_cat_breaks_gub_aue_ls_levels$pop_cat_breaks_gub_aue_ls[3]) %>% 
+  filter(pop_cat_breaks_adj_gub_aue_ls==pop_cat_breaks_adj_gub_aue_ls_levels$pop_cat_breaks_adj_gub_aue_ls[3]) %>% 
   arrange(desc(n_d_na_prev_std_who_per_100k_pop_pt)) %>% 
   slice(1:50) %>% #take top n
   ggplot_top_n_gub_by_n_death_prev_per_100k()
@@ -365,7 +408,7 @@ ggsave("plot_n_d_na_prev_std_per_100k_x_city_pop_cat_3.png", height=10, width=5)
 #### Pop dens cat 2-------
 hia_summary_gub %>% 
   filter(is.na(n_d_na_prev_std_who_per_100k_pop_pt)==F) %>% 
-  filter(pop_cat_breaks_gub_aue_ls==pop_cat_breaks_gub_aue_ls_levels$pop_cat_breaks_gub_aue_ls[2]) %>% 
+  filter(pop_cat_breaks_adj_gub_aue_ls==pop_cat_breaks_adj_gub_aue_ls_levels$pop_cat_breaks_adj_gub_aue_ls[2]) %>% 
   arrange(desc(n_d_na_prev_std_who_per_100k_pop_pt)) %>% 
   slice(1:50) %>% #take top n
   ggplot_top_n_gub_by_n_death_prev_per_100k()
@@ -376,7 +419,7 @@ ggsave("plot_n_d_na_prev_std_per_100k_x_city_pop_cat_2.png", height=10, width=5)
 #### Pop dens cat 1-------
 hia_summary_gub %>% 
   filter(is.na(n_d_na_prev_std_who_per_100k_pop_pt)==F) %>% 
-  filter(pop_cat_breaks_gub_aue_ls==pop_cat_breaks_gub_aue_ls_levels$pop_cat_breaks_gub_aue_ls[1]) %>% 
+  filter(pop_cat_breaks_adj_gub_aue_ls==pop_cat_breaks_adj_gub_aue_ls_levels$pop_cat_breaks_adj_gub_aue_ls[1]) %>% 
   arrange(desc(n_d_na_prev_std_who_per_100k_pop_pt)) %>% 
   slice(1:50) %>% #take top n
   ggplot_top_n_gub_by_n_death_prev_per_100k()
@@ -390,7 +433,7 @@ names(hia_summary_gub)
 hia_summary_gub %>% 
   filter(is.na(n_d_na_prev_std_who_per_100k_pop_pt)==F) %>% 
   #filter to the first level, second level, etc.
-  filter(pop_cat_breaks_gub_aue_ls==pop_cat_breaks_gub_aue_ls_levels$pop_cat_breaks_gub_aue_ls[5]) %>% 
+  filter(pop_cat_breaks_adj_gub_aue_ls==pop_cat_breaks_adj_gub_aue_ls_levels$pop_cat_breaks_adj_gub_aue_ls[5]) %>% 
   arrange(desc(n_d_na_prev_std_who_per_100k_pop_pt)) %>% 
   dplyr::select(
     ORIG_FID,
@@ -1396,29 +1439,6 @@ names(pop_ndvi_gub_biome_tib)
 ### NDVI x pop. density x biome---------
 #First 7. Note not varying width of plot per n obs,
 #as it's too difficult to see.
-pop_ndvi_gub_biome_tib %>% 
-  left_join(biome_number, by = "biome_name_imp") %>% 
-  left_join(lookup_pop_cat_max_fac, by = "pop_cat_max_fac") %>% 
-  filter(biome_number<=7) %>% 
-  pop_ndvi_boxplot_fun_no_varwidth()+
-  facet_grid(
-    #use labeler to wrap text. brilliant.
-    labeller = labeller(biome_name_imp = label_wrap_gen(width = 10)),
-    cols = vars(biome_name_imp))+
-  theme_bw(base_size = 10) +
-  theme(axis.text.x=element_text(angle=90))
-#second 7 biomes
-pop_ndvi_gub_biome_tib %>% 
-  left_join(biome_number, by = "biome_name_imp") %>% 
-  left_join(lookup_pop_cat_max_fac, by = "pop_cat_max_fac") %>% 
-  filter(biome_number>7) %>% 
-  pop_ndvi_boxplot_fun_no_varwidth()+
-  facet_grid(
-    #use labeler to wrap text. brilliant.
-    labeller = labeller(biome_name_imp = label_wrap_gen(width = 10)),
-    cols = vars(biome_name_imp))+
-  theme_bw(base_size = 10) +
-  theme(axis.text.x=element_text(angle=90))
 
 
 table(pop_ndvi_gub_biome_tib$biome_name_imp)

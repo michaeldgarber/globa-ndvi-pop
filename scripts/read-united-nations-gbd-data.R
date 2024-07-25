@@ -71,11 +71,13 @@ un_deaths_2019 %>%
 #Dec 5, 2023: avoiding the "both sexes thing
 setwd(here("data-input", "united-nations-mortality-data"))
 un_pop_2019 = read_excel("un-pop-age-groups-both-sexes-modified.xlsx") %>% 
-  #Update Jan 16, 2023: calling this location_code_un to avoid confusion with location_id_gbd
+  #Update Jan 16, 2023: 
+  #calling this location_code_un to avoid confusion with location_id_gbd
   rename(location_code_un=`Location code`) %>% #fix this
   rename_with(tolower) %>% #May 15th, 2023 - this is amazing. all lowercase
   filter(type=="Country/Area") %>% 
-  rename(pop_20_plus_thousands_num=pop_20_plus_both_sexes_thousands_num) %>% #added Dec 5, 2023
+  #added Dec 5, 2023
+  rename(pop_20_plus_thousands_num=pop_20_plus_both_sexes_thousands_num) %>% 
   mutate(
     #Dec 5, 2023: we don't need "absolute". let's call it _un, though,
     #to keept rack of source
@@ -161,6 +163,7 @@ lookup_un_country_code_three_letter_code %>%
 names(lookup_un_country_code_three_letter_code)
 nrow(lookup_un_country_code_three_letter_code)
 
+names(cities_geonames)
 
 # Load World Bank income classification------
 setwd(here("data-input", "world-bank-income-classification"))
@@ -2256,6 +2259,13 @@ un_pop_deaths_2019 %>%
   arrange(country_name_en) %>% 
   dplyr::select(country_name_en) %>% 
   pull()
+
+#get a look-up for the who data missing country variable so I can investigate
+#why some GUBs still included even though they should be excluded
+lookup_who_data_missing_country=un_pop_deaths_2019 %>% 
+  distinct(country_name_en,who_data_missing_country)
+
+lookup_who_data_missing_country
 # checks and vis------
 #un_pop_deaths_2019 %>% View()
 #to get the list of UN countries in which to search
