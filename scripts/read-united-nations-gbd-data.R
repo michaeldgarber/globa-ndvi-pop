@@ -563,7 +563,12 @@ who_deaths_inj_by_country_latest %>%
   geom_histogram()+
   facet_grid(rows="age")+
   xlab("Proportion of deaths due to injury")+
-  theme_bw(base_size = 14)
+  theme_bw(base_size = 12)
+
+#save this for the supplemental material
+setwd(here("plots"))
+ggsave("plot_prop_deaths_inj_by_age.png", 
+       height=5, width=5)
 
 who_deaths_inj_by_country_latest_for_model=who_deaths_inj_by_country_latest %>% 
   left_join(wb_class,by="iso3_alpha_code") 
@@ -1065,6 +1070,12 @@ who_deaths_inj_by_country_imputed_all_ages %>%
   geom_histogram()+
   theme_bw(base_size = 14)+
   xlab("Residual:\nactual proportion minus predicted proportion")
+
+#save this for supplement
+setwd(here("plots"))
+ggsave("plot_hist_model_residual_all_cause.png", 
+       height=5, width=5)
+
 
 who_deaths_inj_by_country_imputed_all_ages %>% 
   ggplot(aes(x=prop_inj_n_deaths_ac_who_resid))+
@@ -2479,54 +2490,6 @@ un_pop_deaths_2019 %>%
   mutate(le_birth_pt_mean_weighted_calc=sum_of_pop_le_product /pop_total_un_sum)
 #they're the same, almost. neat. use your direct calculation.
 
-# Try different urban-rural rate ratios--------
-names(un_pop_deaths_2019)
-#This can be a function where I vary this
-#irr_ur_val=2
+#Note to self: For urban-rural analysis, see
+#global-ndvi-pop/scripts/analysis-urban-rural.R
 
-
-estimate_urban_ir=function(irr_ur_val){
-  
-  hi=un_pop_deaths_2019 %>% 
-    mutate(
-      #Try different urban-rural rate ratios
-      #See equation in paper.
-      irr_ur=irr_ur_val,
-      irr_ur_cat=as.character(irr_ur),
-      death_rate_urban_gbd_pt= (death_rate_ac_gbd_pt_age_all*irr_ur)/((prop_urban_pop*irr_ur)+(1-prop_urban_pop)),
-      death_rate_urban_gbd_ll= (death_rate_ac_gbd_ll_age_all*irr_ur)/((prop_urban_pop*irr_ur)+(1-prop_urban_pop)),
-      death_rate_urban_gbd_ul= (death_rate_ac_gbd_ul_age_all*irr_ur)/((prop_urban_pop*irr_ur)+(1-prop_urban_pop)),
-      
-      #Note multiply by the urban population
-      n_deaths_ac_urban_gbd_un_pop_pt=death_rate_urban_gbd_pt*pop_urban,
-      n_deaths_ac_urban_gbd_un_pop_ll=death_rate_urban_gbd_ll*pop_urban,
-      n_deaths_ac_urban_gbd_un_pop_ul=death_rate_urban_gbd_ul*pop_urban#Fixed this June 30, 2023
-    ) 
-  return(hi)
-  
-}
-
-#List of possible IRRs
-#Decide on equidistant ratio scales
-1/1.5
-
-1/1.1
-irr_ur_list=c((1/1.5),(1/1.25),1,1.25,1.5)
-#Run function lots of times, and stack the results on top of one another
-un_pop_deaths_2019_irr_ur=irr_ur_list %>% 
-  map_dfr(estimate_urban_ir)
-
-table(un_pop_deaths_2019_irr_ur$irr_ur)
-un_pop_deaths_2019_irr_ur
-names(un_pop_deaths_2019_irr_ur)
-#Now compare
-un_pop_deaths_2019_irr_ur %>% 
-  group_by(region_wb_dl) %>% 
-  summarise(
-    n_deaths_ac_urban_gbd_un_pop_pt=sum(n_deaths_ac_urban_gbd_un_pop_pt,na.rm=TRUE),
-    n_deaths_ac_urban_gbd_un_pop_ll=sum(n_deaths_ac_urban_gbd_un_pop_ll,na.rm=TRUE),
-    n_deaths_ac_urban_gbd_un_pop_ul=sum(n_deaths_ac_urban_gbd_un_pop_ul,na.rm=TRUE)
-  ) %>% 
-  ungroup() %>% 
-  arrange(desc(n_deaths_ac_urban_gbd_un_pop_pt))
-  

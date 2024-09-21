@@ -33,6 +33,8 @@ setwd(here("data-processed"))
 load("lookup_gub_several_vars_wrangle.RData")
 load("lookup_gub_city_info.RData")
 load("lookup_gub_pop_area.RData")
+load("lookup_gub_pop_cat_val_adj.RData")
+
 
 names(lookup_gub_several_vars_wrangle)
 table(pop_ndvi_gub_biome_tib$ndvi_tertile)
@@ -98,7 +100,9 @@ hia_summary_gub %>%
   filter(palestine==1) %>% 
   group_by(country_name_en) %>% 
   summarise(n=n())
-#The reason is some of them are in Israel or "West Bank". Basically...territorial disputes
+
+#The reason is some of them are in Israel or "West Bank". 
+#Basically...territorial disputes;
 #okay, maybe I should put the country_name_en in the country name then so it doesn't get confused
 
 #good. now there are none here.
@@ -737,6 +741,18 @@ hia_summary_biome %>%
     n_d_na_prev_crude_who_max_over_9
   )
 
+
+#what if we exclude deserts? discussion
+hia_summary_biome %>% 
+  filter(biome_name_imp !="Deserts & Xeric Shrublands") %>% 
+  mutate(dummy=1) %>% 
+  group_by(dummy) %>% 
+  summarise(n_d_na_prev_crude_who_mean_pt=sum(n_d_na_prev_crude_who_mean_pt,na.rm=T))
+
+hia_summary_overall %>% 
+  dplyr::select(n_d_na_prev_crude_who_mean_pt)
+
+(702956- 649805)/702956
 ### Figure: biome x age-standardized death rate---------
 
 #define the upper limit of the y-axis
@@ -1386,10 +1402,11 @@ pop_ndvi_boxplot_fun = function(df){
       varwidth=TRUE,
     )+
     #add mean - see Evernote for notes
-    stat_summary(fun=mean, geom="point", shape=23, size=2)+
+    stat_summary(fun=mean, geom="point", 
+                 shape=23, size=2)+
     xlab(
-      "Population density\n (unscaled upper bound of LandScan category)\n of pixel per sq. km"
-    )+ 
+      "Population density\n (people per square kilometer,\nunscaled upper bound of LandScan category)"
+    )+    
     ylab("NDVI")
 }
 
@@ -1404,17 +1421,22 @@ pop_ndvi_boxplot_fun_no_varwidth = function(df){
     #add mean - see Evernote for notes
     stat_summary(fun=mean, geom="point", shape=23, size=2)+
     xlab(
-      "Population density\n (unscaled upper bound of LandScan category)\n of pixel per sq. km"
+      "Population density\n (people per square kilometer,\nunscaled upper bound of LandScan category)"
     )+ 
     ylab("NDVI")
 }
 
+
+
+nrow(pop_ndvi_gub_biome_tib)
+names(pop_ndvi_gub_biome_tib)
 lookup_pop_cat_max_fac
 plot_ndvi_x_pop_pop_cat_max_fac=pop_ndvi_gub_biome_tib %>% 
   left_join(lookup_pop_cat_max_fac, by = "pop_cat_max_fac") %>% 
   pop_ndvi_boxplot_fun()+
   theme_bw(base_size=12)
 
+plot_ndvi_x_pop_pop_cat_max_fac
 #save with uniform dimensions
 #Note this is going into a panel, so keep height rather short
 setwd(here("plots"))

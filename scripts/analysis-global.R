@@ -813,3 +813,20 @@ names(pop_ndvi_gub_biome_tib)
 
 #End of code here
 #For the summaries, now look here: ~summary-global.R
+
+# For the final posted dataset, remove a few variables-----
+names(pop_ndvi_gub_biome_tib)
+#remove anything pertaining to urban and GBD
+pop_ndvi_gub_biome_tib_public=pop_ndvi_gub_biome_tib %>% 
+  dplyr::select(-contains("urban")) %>% 
+  dplyr::select(-contains("gbd")) 
+
+setwd(here("data-processed"))
+save(pop_ndvi_gub_biome_tib_public, file = "pop_ndvi_gub_biome_tib_public.RData")
+
+
+ncol(pop_ndvi_gub_biome_tib)
+ncol(pop_ndvi_gub_biome_tib_public)
+names(pop_ndvi_gub_biome_tib_public)
+
+

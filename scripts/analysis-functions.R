@@ -258,7 +258,8 @@ mutate_steps_hia_ndvi_pop = function(df){
 
       #age-adjusted
       #here the mean corresponds to the n_d_ac_0_ estimate and the pt, sl, wl corresponds to the PAF
-      n_d_ac_prev_std_gbd_mean_pt = paf_ac_pt*n_d_ac_0_std_gbd_mean*-1, #multiply by -1 so it's prevented deaths
+                            #multiply by -1 so it's prevented deaths
+      n_d_ac_prev_std_gbd_mean_pt = paf_ac_pt*n_d_ac_0_std_gbd_mean*-1, 
       n_d_ac_prev_std_gbd_mean_ul = paf_ac_sl*n_d_ac_0_std_gbd_mean*-1,  
       n_d_ac_prev_std_gbd_mean_ll = paf_ac_wl*n_d_ac_0_std_gbd_mean*-1,  
       
@@ -271,7 +272,8 @@ mutate_steps_hia_ndvi_pop = function(df){
       n_d_ac_prev_std_gbd_max_ll = paf_ac_wl*n_d_ac_0_std_gbd_max*-1,  
 
       #WHO version
-      n_d_ac_prev_std_who_mean_pt = paf_ac_pt*n_d_ac_0_std_who_mean*-1, #multiply by -1 so it's prevented deaths
+          #multiply by -1 so it's prevented deaths
+      n_d_ac_prev_std_who_mean_pt = paf_ac_pt*n_d_ac_0_std_who_mean*-1, 
       n_d_ac_prev_std_who_mean_ul = paf_ac_sl*n_d_ac_0_std_who_mean*-1,  
       n_d_ac_prev_std_who_mean_ll = paf_ac_wl*n_d_ac_0_std_who_mean*-1,  
       
@@ -284,7 +286,7 @@ mutate_steps_hia_ndvi_pop = function(df){
       n_d_ac_prev_std_who_max_ll = paf_ac_wl*n_d_ac_0_std_who_max*-1,  
 
       #crude (not age-adjusted)
-      n_d_ac_prev_crude_gbd_mean_pt = paf_ac_pt*n_d_ac_0_crude_gbd_mean*-1, #multiply by -1 so it's prevented deaths
+      n_d_ac_prev_crude_gbd_mean_pt = paf_ac_pt*n_d_ac_0_crude_gbd_mean*-1,
       n_d_ac_prev_crude_gbd_mean_ul = paf_ac_sl*n_d_ac_0_crude_gbd_mean*-1,  
       n_d_ac_prev_crude_gbd_mean_ll = paf_ac_wl*n_d_ac_0_crude_gbd_mean*-1,  
       
@@ -296,7 +298,7 @@ mutate_steps_hia_ndvi_pop = function(df){
       n_d_ac_prev_crude_gbd_max_ul = paf_ac_sl*n_d_ac_0_crude_gbd_max*-1,
       n_d_ac_prev_crude_gbd_max_ll = paf_ac_wl*n_d_ac_0_crude_gbd_max*-1,  
 
-      n_d_ac_prev_crude_who_mean_pt = paf_ac_pt*n_d_ac_0_crude_who_mean*-1, #multiply by -1 so it's prevented deaths
+      n_d_ac_prev_crude_who_mean_pt = paf_ac_pt*n_d_ac_0_crude_who_mean*-1, 
       n_d_ac_prev_crude_who_mean_ul = paf_ac_sl*n_d_ac_0_crude_who_mean*-1,  
       n_d_ac_prev_crude_who_mean_ll = paf_ac_wl*n_d_ac_0_crude_who_mean*-1,  
       
@@ -570,8 +572,6 @@ hia_summarise = function(df){
       n_d_na_prev_crude_who_min_pt=sum(n_d_na_prev_crude_who_min_pt,na.rm=TRUE),
       n_d_na_prev_crude_who_max_pt=sum(n_d_na_prev_crude_who_max_pt,na.rm=TRUE),
       
-      
-      
       #Oct 10, 2023: not necessary, but I'm curious,
       #is the average PAF multiplied by the average baseline rate get us the same result?
       #If so, then that would justify why the population can cancel (one way)
@@ -607,9 +607,7 @@ hia_summarise = function(df){
       #summarizing number of deaths prev. per 100k are not adding up
       pop_cat_mean_val_scaled_bottom_tertiles=sum(pop_cat_mean_val_scaled_bottom_tertiles,na.rm=T),
       
-      #adding some other summary values
-      #Good catch - this is the sum of pixels
-      #Oct 10, 2023
+      #sum of area over pixels
       area_km2= sum(area_km2_pixel,na.rm=TRUE),
  
     ) %>% 
@@ -714,5 +712,334 @@ hia_summarise = function(df){
       paf_ac_rate_pt_mean_bottom_tertiles=
         pop_cat_mean_val_scaled_bottom_tertiles_ratio*paf_ac_rate_pt_mean
 
+    )
+}
+
+
+## a version of hia_summarise that does not include GBD data---------
+#same as above, but remove anything pertaining to GBD so I can avoid
+#posting that
+hia_summarise_who_only = function(df){
+  df %>% 
+    summarise(
+      
+      #number of distinct values of pop. density. might not always be useful, but sometimes
+      #interestingly, some GUBs overlap country, which gives more than 9 unique values,
+      #so report both:
+      n_distinct_pop_cat_scaled_who = n_distinct(pop_cat_mean_val_scaled_who),
+      
+      n_distinct_pop_cat_not_scaled = n_distinct(pop_cat_mean_val),
+      
+      #scaled population - pop of adults 30+
+      #Jan 17, 2024: we now have two versions of this - GBD and WHO
+
+      pop_cat_mean_val_scaled_who = sum(pop_cat_mean_val_scaled_who,na.rm=TRUE),
+      pop_cat_min_val_scaled_who = sum(pop_cat_min_val_scaled_who,na.rm=TRUE),
+      pop_cat_max_val_scaled_who = sum(pop_cat_max_val_scaled_who,na.rm=TRUE),
+      
+      #for completeness, keep the unscaled population as well
+      pop_cat_mean_val = sum(pop_cat_mean_val,na.rm=TRUE),
+      pop_cat_min_val = sum(pop_cat_min_val,na.rm=TRUE),
+      pop_cat_max_val = sum(pop_cat_max_val,na.rm=TRUE),
+      
+      #baseline n, deaths
+      #all cause
+      n_d_ac_0_std_who_mean = sum(n_d_ac_0_std_who_mean, na.rm=TRUE),
+      n_d_ac_0_std_who_min = sum(n_d_ac_0_std_who_min, na.rm=TRUE),
+      n_d_ac_0_std_who_max = sum(n_d_ac_0_std_who_max, na.rm=TRUE),
+      
+      n_d_ac_0_crude_who_mean = sum(n_d_ac_0_crude_who_mean, na.rm=TRUE),
+      n_d_ac_0_crude_who_min = sum(n_d_ac_0_crude_who_min, na.rm=TRUE),
+      n_d_ac_0_crude_who_max = sum(n_d_ac_0_crude_who_max, na.rm=TRUE),
+      
+      #non-accidental
+      n_d_na_0_std_who_mean = sum(n_d_na_0_std_who_mean, na.rm=TRUE),
+      n_d_na_0_std_who_min = sum(n_d_na_0_std_who_min, na.rm=TRUE),
+      n_d_na_0_std_who_max = sum(n_d_na_0_std_who_max, na.rm=TRUE),
+      
+      n_d_na_0_crude_who_mean = sum(n_d_na_0_crude_who_mean, na.rm=TRUE),
+      n_d_na_0_crude_who_min = sum(n_d_na_0_crude_who_min, na.rm=TRUE),
+      n_d_na_0_crude_who_max = sum(n_d_na_0_crude_who_max, na.rm=TRUE),
+      
+      
+      #Summarize the min/max over both sources (pop. bounds and RR bounds)
+      #all-cause
+      n_d_ac_prev_std_who_mean_pt = sum(n_d_ac_prev_std_who_mean_pt, na.rm=TRUE),
+      n_d_ac_prev_std_who_min_over_9 = sum(n_d_ac_prev_std_who_min_over_9, na.rm=TRUE),
+      n_d_ac_prev_std_who_max_over_9 = sum(n_d_ac_prev_std_who_max_over_9, na.rm=TRUE),
+      
+      n_d_ac_prev_std_who_mean_pt = sum(n_d_ac_prev_std_who_mean_pt, na.rm=TRUE),
+      n_d_ac_prev_std_who_min_over_9 = sum(n_d_ac_prev_std_who_min_over_9, na.rm=TRUE),
+      n_d_ac_prev_std_who_max_over_9 = sum(n_d_ac_prev_std_who_max_over_9, na.rm=TRUE),
+      
+      #non-accidental
+      n_d_na_prev_std_who_mean_pt = sum(n_d_na_prev_std_who_mean_pt, na.rm=TRUE),
+      n_d_na_prev_std_who_min_over_9 = sum(n_d_na_prev_std_who_min_over_9, na.rm=TRUE),
+      n_d_na_prev_std_who_max_over_9 = sum(n_d_na_prev_std_who_max_over_9, na.rm=TRUE),
+      
+      n_d_na_prev_std_who_mean_pt = sum(n_d_na_prev_std_who_mean_pt, na.rm=TRUE),
+      n_d_na_prev_std_who_min_over_9 = sum(n_d_na_prev_std_who_min_over_9, na.rm=TRUE),
+      n_d_na_prev_std_who_max_over_9 = sum(n_d_na_prev_std_who_max_over_9, na.rm=TRUE),
+      
+      
+      #October 10, 2023: I also want to include explicit tracking
+      #of the uncertainty due to both sources so that I can verify
+      #my suspicion that the uncertainty of the landscan doesn't affect
+      #the per-population estimates. The rest follows below
+      n_d_ac_prev_std_who_min_pt=sum(n_d_ac_prev_std_who_min_pt,na.rm=TRUE),
+      n_d_ac_prev_std_who_max_pt=sum(n_d_ac_prev_std_who_max_pt,na.rm=TRUE),
+      
+      n_d_na_prev_std_who_min_pt=sum(n_d_na_prev_std_who_min_pt,na.rm=TRUE),
+      n_d_na_prev_std_who_max_pt=sum(n_d_na_prev_std_who_max_pt,na.rm=TRUE),
+      
+      
+      #crude versions
+      #all-cause
+
+      n_d_ac_prev_crude_who_mean_pt = sum(n_d_ac_prev_crude_who_mean_pt, na.rm=TRUE),
+      n_d_ac_prev_crude_who_min_over_9 = sum(n_d_ac_prev_crude_who_min_over_9, na.rm=TRUE),
+      n_d_ac_prev_crude_who_max_over_9 = sum(n_d_ac_prev_crude_who_max_over_9, na.rm=TRUE),
+      
+      n_d_ac_prev_crude_who_min_pt=sum(n_d_ac_prev_crude_who_min_pt,na.rm=TRUE),
+      n_d_ac_prev_crude_who_max_pt=sum(n_d_ac_prev_crude_who_max_pt,na.rm=TRUE),
+      
+      #non-accidental
+      #July 22, 2024: I'm getting strange results when I summarize certain pop. density
+      #categories. Try renaming
+      n_d_na_prev_crude_who_mean_pt = sum(n_d_na_prev_crude_who_mean_pt, na.rm=TRUE),
+      n_d_na_prev_crude_who_min_over_9 = sum(n_d_na_prev_crude_who_min_over_9, na.rm=TRUE),
+      n_d_na_prev_crude_who_max_over_9 = sum(n_d_na_prev_crude_who_max_over_9, na.rm=TRUE),
+      
+      n_d_na_prev_crude_who_min_pt=sum(n_d_na_prev_crude_who_min_pt,na.rm=TRUE),
+      n_d_na_prev_crude_who_max_pt=sum(n_d_na_prev_crude_who_max_pt,na.rm=TRUE),
+      
+      #Oct 10, 2023: not necessary, but I'm curious,
+      #is the average PAF multiplied by the average baseline rate get us the same result?
+      #If so, then that would justify why the population can cancel (one way)
+      #Should work if they're independent (which we assume they are)
+      paf_ac_pt_mean=mean(paf_ac_pt,na.rm=TRUE),
+      # death_rate_ac_gbd_pt_age_std_20_plus_mean=mean(death_rate_ac_gbd_pt_age_std_20_plus,na.rm=TRUE),
+      # death_rate_ac_gbd_pt_age_20_plus_mean=mean(death_rate_ac_gbd_pt_age_20_plus,na.rm=TRUE),
+      # #the answer is no, they're different, but they don't need to be independent.
+      # #try this
+      paf_ac_rate_pt_mean=mean(paf_ac_rate_pt,na.rm=TRUE),
+      
+      #don't need the 2019
+      ndvi_mean = mean(ndvi_2019, na.rm=TRUE),
+      ndvi_sd = sd(ndvi_2019, na.rm=TRUE),
+      ndvi_med = median(ndvi_2019, na.rm=TRUE),
+      ndvi_25th = quantile(ndvi_2019, probs=c(0.25), na.rm=TRUE),
+      ndvi_75th = quantile(ndvi_2019, probs=c(0.75), na.rm=TRUE),
+      ndvi_diff_mean = mean(ndvi_diff, na.rm=TRUE),
+      ndvi_diff_sd = sd(ndvi_diff, na.rm=TRUE),
+      ndvi_diff_med = median(ndvi_diff, na.rm=TRUE),
+      ndvi_diff_25th = quantile(ndvi_diff, probs=c(0.25), na.rm=TRUE),
+      ndvi_diff_75th = quantile(ndvi_diff, probs=c(0.75), na.rm=TRUE),
+      
+      #percent differences
+      ndvi_diff_pd_mean=mean(ndvi_diff_pd,na.rm=T),
+      ndvi_diff_pd_sd = sd(ndvi_diff_pd, na.rm=TRUE),
+      ndvi_diff_pd_med = median(ndvi_diff_pd, na.rm=TRUE),
+      ndvi_diff_pd_25th = quantile(ndvi_diff_pd, probs=c(0.25), na.rm=TRUE),
+      ndvi_diff_pd_75th = quantile(ndvi_diff_pd, probs=c(0.75), na.rm=TRUE),
+      
+      
+      #Oct 10, 2023: I have a hunch this is why my various ways of
+      #summarizing number of deaths prev. per 100k are not adding up
+      pop_cat_mean_val_scaled_bottom_tertiles=sum(pop_cat_mean_val_scaled_bottom_tertiles,na.rm=T),
+      
+      #sum of area over pixels
+      area_km2= sum(area_km2_pixel,na.rm=TRUE),
+      
+    ) %>% 
+    ungroup() %>% 
+    mutate(
+      #Deaths prevented per pop------
+      #Deaths prevented per pop - note the order
+      #Jan 17, 2024:
+      #Note sure why I began with 1k. Perhaps we can omit this and go straight to 100k?
+      ## all-cause-------------
+
+      #Keeping the _min_over_9 to remember that this is over both sources of uncertainty
+      #i.e., 9 iterations - 3 RR values and 3 pop. values
+
+
+      #same for WHO
+      n_d_ac_prev_std_who_per_100k_pop_pt = (
+        n_d_ac_prev_std_who_mean_pt/pop_cat_mean_val_scaled_who)*100000 ,
+      n_d_ac_prev_std_who_per_100k_pop_min_over_9 = (
+        n_d_ac_prev_std_who_min_over_9/pop_cat_min_val_scaled_who)*100000 ,
+      n_d_ac_prev_std_who_per_100k_pop_max_over_9 = (
+        n_d_ac_prev_std_who_max_over_9/pop_cat_max_val_scaled_who)*100000,
+      
+      
+      #Oct 10, 2023: curious re. my claim that population doesn't affect n_d_ac_prev...
+      #That is, is the n deaths prevented per pop the same within category of population?
+      #I think it will be, but let's check
+
+      
+      #same for WHO
+      n_d_ac_prev_crude_who_per_100k_pop_pt = (
+        n_d_ac_prev_crude_who_mean_pt/pop_cat_mean_val_scaled_who)* 100000 ,
+      n_d_ac_prev_crude_who_per_100k_pop_min_over_9 = (
+        n_d_ac_prev_crude_who_min_over_9/pop_cat_min_val_scaled_who)* 100000 ,
+      n_d_ac_prev_crude_who_per_100k_pop_max_over_9 = (
+        n_d_ac_prev_crude_who_max_over_9/pop_cat_max_val_scaled_who)* 100000,
+      
+      ## non-accidental---------
+      n_d_na_prev_std_who_per_100k_pop_pt = (
+        n_d_na_prev_std_who_mean_pt/pop_cat_mean_val_scaled_who)*100000 ,
+      n_d_na_prev_std_who_per_100k_pop_min_over_9 = (
+        n_d_na_prev_std_who_min_over_9/pop_cat_min_val_scaled_who)*100000 ,
+      n_d_na_prev_std_who_per_100k_pop_max_over_9 = (
+        n_d_na_prev_std_who_max_over_9/pop_cat_max_val_scaled_who)*100000,
+      
+      n_d_na_prev_crude_who_per_100k_pop_pt = (
+        n_d_na_prev_crude_who_mean_pt/pop_cat_mean_val_scaled_who)* 100000 ,
+      n_d_na_prev_crude_who_per_100k_pop_min_over_9 = (
+        n_d_na_prev_crude_who_min_over_9/pop_cat_min_val_scaled_who)* 100000 ,
+      n_d_na_prev_crude_who_per_100k_pop_max_over_9 = (
+        n_d_na_prev_crude_who_max_over_9/pop_cat_max_val_scaled_who)* 100000,
+      
+      #For the table, it'd be easier to have in millions
+      #scaled population - pop of adults 30+
+
+      pop_cat_mean_val_scaled_who_millions = pop_cat_mean_val_scaled_who/1000000,
+      pop_cat_min_val_scaled_who_millions = pop_cat_min_val_scaled_who/1000000,
+      pop_cat_max_val_scaled_who_millions = pop_cat_max_val_scaled_who/1000000,
+      
+      #for completeness, keep the unscaled population as well
+      pop_cat_mean_val_millions = pop_cat_mean_val/1000000,
+      pop_cat_min_val_millions = pop_cat_min_val/1000000,
+      pop_cat_max_val_millions = pop_cat_max_val/1000000,
+      
+      #Oct 10, 2023
+      #exploring possible reason for various expressions of PAF rate
+      #not adding up...
+      pop_cat_mean_val_scaled_bottom_tertiles_ratio=
+        pop_cat_mean_val_scaled_bottom_tertiles/pop_cat_mean_val,
+      
+      paf_ac_rate_pt_mean_bottom_tertiles=
+        pop_cat_mean_val_scaled_bottom_tertiles_ratio*paf_ac_rate_pt_mean
+      
+    )
+}
+
+# Functions for final tables-----------
+#Used here and here
+#global-ndvi-pop/docs-for-word/tables-main-text.Rmd
+#global-ndvi-pop/scripts/tables-main-text.R
+
+select_vars_for_table = function(df){
+  df %>% 
+    dplyr::select(
+      starts_with("pop_cat_max_fac"), #soft code in case not there
+      starts_with("biome_name_imp"), #soft code so it works in a function
+      starts_with("income_grp"),#soft code
+      starts_with("area_km"),#soft code
+      # pop_cat_mean_val_scaled,#total population 30+ in these categories
+      # pop_cat_min_val_scaled,
+      # pop_cat_max_val_scaled,
+      ends_with("millions"),
+      #adding these back Dec 1, 2023
+      starts_with("n_d_na_0_crude_who_"),
+      
+      ndvi_med,
+      ndvi_25th,
+      ndvi_75th,
+      ndvi_diff_med,
+      ndvi_diff_25th,
+      ndvi_diff_75th,
+      n_d_na_prev_std_who_per_100k_pop_pt,
+      n_d_na_prev_std_who_per_100k_pop_min_over_9,
+      n_d_na_prev_std_who_per_100k_pop_max_over_9,
+      n_d_na_prev_crude_who_per_100k_pop_pt,
+      n_d_na_prev_crude_who_per_100k_pop_min_over_9,
+      n_d_na_prev_crude_who_per_100k_pop_max_over_9,
+      n_d_na_prev_crude_who_mean_pt,
+      n_d_na_prev_crude_who_min_over_9,
+      n_d_na_prev_crude_who_max_over_9
+      
+    )
+}
+
+#Let's make NDVI difference 2 decimals rather than 3
+mutate_conc_for_table = function(df){
+  df %>% 
+    mutate(
+      
+      #Population
+      #Express in millions instead - Oct 9 2023
+      #   pop_cat_mean_val_scaled_who_conc = paste0(
+      #     as.character(formatC(pop_cat_mean_val_scaled,digits=0, format = "f",big.mark=",")),
+      #       " (", 
+      #     as.character(formatC(pop_cat_min_val_scaled,digits=0, format = "f",big.mark=",")),
+      #       "; ",#semi colon to avoid confusion with comma
+      #       as.character(formatC(pop_cat_max_val_scaled,digits=0, format="f",big.mark=",")),
+      #         ")"
+      #     )
+      # ,
+      
+      #Population - expressed in millions-
+      pop_cat_mean_val_scaled_who_millions_conc = paste0(
+        as.character(formatC(pop_cat_mean_val_scaled_who_millions,digits=2, format = "f",big.mark=",")),
+        " (", 
+        as.character(formatC(pop_cat_min_val_scaled_who_millions,digits=2, format = "f",big.mark=",")),
+        "; ",#semi colon to avoid confusion with comma
+        as.character(formatC(pop_cat_max_val_scaled_who_millions,digits=2, format="f",big.mark=",")),
+        ")"
+      )
+      ,
+      #Adding baseline mortality Dec 1, 2023
+      n_d_na_0_crude_who_conc=paste0(
+        as.character(formatC(n_d_na_0_crude_who_mean,digits=0, format = "f",big.mark=",")),
+        " (", 
+        as.character(formatC(n_d_na_0_crude_who_min,digits=0, format = "f",big.mark=",")),
+        "; ",
+        as.character(formatC(n_d_na_0_crude_who_max,digits=0, format="f",big.mark=",")),
+        ")"),
+      
+      ndvi_conc = paste0(
+        as.character(formatC(ndvi_med,digits=3, format = "f")),
+        " (", 
+        as.character(formatC(ndvi_25th,digits=3, format = "f")),
+        ", ",
+        as.character(formatC(ndvi_75th,digits=3, format="f")),
+        ")"),
+      ndvi_diff_conc = paste0(
+        as.character(formatC(ndvi_diff_med,digits=2, format = "f")),
+        " (", 
+        as.character(formatC(ndvi_diff_25th,digits=2, format = "f")),
+        ", ",
+        as.character(formatC(ndvi_diff_75th,digits=2, format="f")),
+        ")"),
+      
+      #age-adjusted death rate prevented
+      n_d_na_prev_std_who_per_100k_pop_conc = paste0(
+        as.character(formatC(n_d_na_prev_std_who_per_100k_pop_pt,digits=0, format = "f")),
+        " (", 
+        as.character(formatC(n_d_na_prev_std_who_per_100k_pop_min_over_9,digits=0, format = "f")),
+        ", ",
+        as.character(formatC(n_d_na_prev_std_who_per_100k_pop_max_over_9,digits=0, format="f")),
+        ")"),
+      
+      #crude death rate prevented
+      n_d_na_prev_crude_who_per_100k_pop_conc = paste0(
+        as.character(formatC(n_d_na_prev_crude_who_per_100k_pop_pt,digits=0, format = "f")),
+        " (", 
+        as.character(formatC(n_d_na_prev_crude_who_per_100k_pop_min_over_9,digits=0, format = "f")),
+        ", ",
+        as.character(formatC(n_d_na_prev_crude_who_per_100k_pop_max_over_9,digits=0, format="f")),
+        ")"),
+      
+      #crude total number of deaths prevented
+      n_d_na_prev_crude_who_conc = paste0(
+        as.character(formatC(n_d_na_prev_crude_who_mean_pt,digits=0, format = "f",big.mark=",")),
+        " (", 
+        as.character(formatC(n_d_na_prev_crude_who_min_over_9,digits=0, format = "f",big.mark=",")),
+        "; ",
+        as.character(formatC(n_d_na_prev_crude_who_max_over_9,digits=0, format="f",big.mark=",")),
+        ")"),
+      
     )
 }

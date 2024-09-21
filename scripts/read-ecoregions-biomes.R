@@ -93,7 +93,7 @@ biomes_14 %>%
 
 # Restrict to Colorado----
 sf::sf_use_s2(FALSE)
-source(here("scripts", "generate-boundaries-states-countries.R")) 
+source(here("scripts", "read-boundaries-states-countries.R")) 
 state_boundaries %>% mapview()
 colorado_boundary = state_boundaries %>% 
   filter(name == "Colorado")
@@ -110,6 +110,25 @@ ecoregions_colorado = ecoregions %>%
 
 names(ecoregions_colorado)
 ecoregions_colorado %>% mapview(zcol = "ECO_NAME")
+
+# Restrict to California-----
+#Aug 19, 2024: doing this for Maren
+load("biomes_14.RData")
+california_boundary = state_boundaries %>% 
+  filter(NAME == "California") %>% 
+  rename(state_name=NAME) %>% 
+  dplyr::select(contains("state"))
+
+
+california_boundary %>% mapview()
+biomes_14_california = biomes_14 %>% 
+  st_intersection(california_boundary)
+
+biomes_14_california %>% mapview(zcol="BIOME_NAME")
+#save this
+setwd(here("data-processed"))
+save(biomes_14_california, file = "biomes_14_california.RData")
+biomes_14_california
 
 # Restrict to continental USA-------
 source(here("scripts", "generate-boundaries-states-countries.R")) #if needed to run again
