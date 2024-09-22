@@ -6,6 +6,7 @@
 #dataset
 
 library(tidyverse)
+library(here)
 
 #Run this script
 source(here("scripts", "analysis-functions.R"))
@@ -14,6 +15,9 @@ setwd(here("data-processed"))
 load("pop_ndvi_gub_biome_tib_public.RData")# pixel-level results
 load("lookup_pop_cat_max_fac.RData")#look-up table for pop density results
 load("lookup_income_grp.RData") #look-up table for country-level WHO income class
+
+lookup_income_grp
+lookup_pop_cat_max_fac
 
 names(pop_ndvi_gub_biome_tib_public)
 nrow(pop_ndvi_gub_biome_tib_public)

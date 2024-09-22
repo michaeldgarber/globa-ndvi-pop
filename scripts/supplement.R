@@ -120,5 +120,8 @@ ggsave("plot_ndvi_x_biome_x pop_dens_last_4.png",
 source(here("scripts", "read-united-nations-gbd-data.R")) #HIA
 
 # On the missingness of the GUBs-------
+#Corresponds to Supplementary Notes 2 in appendix
+#Tables are created here
+#global-ndvi-pop/docs-for-word/supp-tables.Rmd
 
 

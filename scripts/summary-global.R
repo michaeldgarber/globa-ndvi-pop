@@ -41,6 +41,7 @@ table(pop_ndvi_gub_biome_tib$ndvi_tertile)
 names(pop_ndvi_gub_biome_tib)
 pop_ndvi_gub_biome_tib %>% 
   filter(country_name_en=="Palestine")
+names(hia_summary_gub)
 hia_summary_gub= pop_ndvi_gub_biome_tib %>% 
   filter(ndvi_tertile<3) %>%   #exclude top NDVI tertile throughout
   group_by(ORIG_FID) %>% 
@@ -91,6 +92,7 @@ setwd(here("data-processed"))
 save(hia_summary_gub,file="hia_summary_gub.RData")
 names(hia_summary_gub)
 nrow(hia_summary_gub)
+table(hia_summary_gub$city_name_admin_code_country_name)
 #why are we still getting some in Palestine?
 hia_summary_gub %>% 
   mutate(palestine=case_when(
@@ -298,7 +300,10 @@ ggplot_top_n_gub_by_n_death_prev_per_100k = function(df){
     geom_pointrange(aes(xmin=n_d_na_prev_std_who_per_100k_pop_min_over_9,
                         xmax=n_d_na_prev_std_who_per_100k_pop_max_over_9))+
     scale_x_continuous(limits=c(0,250))+
-    labs(
+    # labs(
+    #   x="",
+    #   y="")+
+     labs(
       x="Age-standardized\nnon-accidental death rate\n prevented\nper 100,000 population\n(adults 30+)",
       y="Largest city in GUB")+
     theme_bw(base_size = 12)
@@ -343,6 +348,7 @@ pop_cat_breaks_adj_gub_aue_ls_levels$pop_cat_breaks_adj_gub_aue_ls[4]
 pop_cat_breaks_adj_gub_aue_ls_levels$pop_cat_breaks_adj_gub_aue_ls[5]
 
 #### Pop dens cat 5-------
+#Top 50 is too many. Let's do 30 instead.
 hia_summary_gub %>% 
   filter(is.na(n_d_na_prev_std_who_per_100k_pop_pt)==F) %>% 
   #filter to the first level, second level, etc.
@@ -447,6 +453,7 @@ hia_summary_gub %>%
 
 ### Top n in US--------
 names(hia_summary_gub)
+nrow(hia_summary_gub)
 hia_summary_gub %>% 
   filter(country_name_en=="United States of America") %>% 
   filter(is.na(city_name_either_source)==F) %>% 
@@ -465,6 +472,39 @@ hia_summary_gub %>%
     x="Estimated number of\nnon-accidental deaths prevented\nper 100,000 population",
     y="City name")+
   theme_bw(base_size = 8)
+
+#alternate city-level plot idea
+names(hia_summary_gub$pop_cat_mean_val_scaled_who)
+hia_summary_gub %>% 
+  ggplot(aes(x=n_d_na_prev_std_who_per_100k_pop_pt,y=pop_cat_mean_val_scaled_who))+
+  geom_point()+
+  facet_grid(rows="pop_cat_breaks_adj_gub_aue_ls") 
+
+
+## top 30 by category... how about a table instead?--------
+hia_summary_gub %>% 
+  group_by(pop_cat_breaks_adj_gub_aue_ls) %>% 
+  slice(1:30) %>% 
+  arrange(pop_cat_breaks_adj_gub_aue_ls,desc(n_d_na_prev_std_who_per_100k_pop_pt)) %>% 
+  dplyr::select(
+    pop_cat_breaks_adj_gub_aue_ls,
+    city_name_country_name_admin_if_dupe_ranked_by_n_d_na_prev_per_pop,
+    n_d_na_prev_std_who_per_100k_pop_pt,
+    n_d_na_prev_std_who_per_100k_pop_min_over_9,
+    n_d_na_prev_std_who_per_100k_pop_max_over_9
+  ) %>% 
+  View()
+
+  
+
+hia_summary_gub %>% 
+  ggplot(aes(x=n_d_na_prev_std_who_per_100k_pop_pt))+
+  geom_density()+
+  facet_grid(rows=vars(pop_cat_breaks_adj_gub_aue_ls))+
+  labs(
+    x="Estimated number of\nnon-accidental deaths prevented\nper 100,000 population"
+  )+
+  theme_bw(base_size = 9)
 
 
 ## maps-------
@@ -1061,7 +1101,7 @@ plot_n_d_na_prev_std_per_100k_x_country_top_n=hia_summary_country %>%
   filter(is.na(country_name_en)==F) %>% 
   filter(is.na(n_d_na_prev_std_who_per_100k_pop_pt)==F) %>% 
   arrange(desc(n_d_na_prev_std_who_per_100k_pop_pt)) %>% 
-  ggplot_top_n_country_by_n_death_prev_per_100k
+  ggplot_top_n_country_by_n_death_prev_per_100k()
 
 
 plot_n_d_na_prev_std_per_100k_x_country_top_n
