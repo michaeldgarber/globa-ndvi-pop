@@ -163,7 +163,6 @@ lookup_un_country_code_three_letter_code %>%
 names(lookup_un_country_code_three_letter_code)
 nrow(lookup_un_country_code_three_letter_code)
 
-names(cities_geonames)
 
 # Load World Bank income classification------
 setwd(here("data-input", "world-bank-income-classification"))

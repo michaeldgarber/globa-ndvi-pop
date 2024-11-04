@@ -219,9 +219,9 @@ pop_ndvi_gub_biome_tib_gub_not_miss %>%
 #7550
 7550/nrow(pop_ndvi_gub_biome_tib_gub_not_miss)
 
-pop_ndvi_gub_biome_tib_gub_not_miss %>% 
-  distinct(country_name_en) %>% 
-  View()
+# pop_ndvi_gub_biome_tib_gub_not_miss %>% 
+#   distinct(country_name_en) %>% 
+#   View()
 
 #Dec 1, 2023: Cut it here. For a continuation of this, see ~analysis-global.
 

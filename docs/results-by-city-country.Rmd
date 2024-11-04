@@ -1,13 +1,15 @@
 ---
 title: "Results by urban area and country"
 author: "Michael D Garber"
-date: "`r Sys.Date()`"
 output:
   bookdown::html_document2:
     toc: true
     toc_float: true
     toc_depth: 4
 ---
+Corresponding article:<br>
+Greening urban areas in line with population density and ecological zone can reduce premature mortality. *Communications Earth & Environment*. 2024. https://www.nature.com/articles/s43247-024-01803-y
+
 
 # By urban area
 Ranked in descending order by age-standardized prevented mortality rate
