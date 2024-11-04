@@ -1,0 +1,17 @@
+---
+title: "Web materials for project estimating health impacts of urban greening in line with population density"
+subtitle: "Corresponding article: Greening urban areas in line with population density and ecological zone can reduce premature mortality"
+author: "Michael D. Garber, PhD MPH"
+date: "`r Sys.Date()`"
+output: 
+  bookdown::html_document2:
+    toc: FALSE #overwrite the _yml
+---
+
+Article: [Greening urban areas in line with population density and ecological zone can reduce premature mortality](https://www.nature.com/articles/s43247-024-01803-y). *Communications Earth & Environment*. 2024
+
+GitHub repository: <https://github.com/michaeldgarber/global-ndvi-pop>
+
+Results by urban area and country: <https://michaeldgarber.github.io/global-ndvi-pop/results-by-city-country.html>
+
+URL of this page: <https://michaeldgarber.github.io/global-ndvi-pop>/
