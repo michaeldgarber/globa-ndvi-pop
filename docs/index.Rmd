@@ -1,5 +1,5 @@
 ---
-title: "Web materials for project estimating health impacts of urban greening in line with population density"
+title: "Estimating health impacts of urban greening in line with population density"
 author: "Michael D. Garber, PhD MPH"
 date: "`r Sys.Date()`"
 output: 
